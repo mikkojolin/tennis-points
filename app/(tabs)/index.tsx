@@ -40,7 +40,7 @@ const STORAGE_KEY = "@tennis_match_database";
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<
-    "setup" | "match" | "history"
+    "setup" | "match" | "history" | "victory"
   >("setup");
 
   // --- Setup State ---
@@ -62,12 +62,13 @@ export default function App() {
   const [completedSets, setCompletedSets] = useState<
     { p1: number; p2: number }[]
   >([]);
+  const [matchWinner, setMatchWinner] = useState<1 | 2 | null>(null);
 
   // --- History & Database State ---
   const [history, setHistory] = useState<MatchState[]>([]);
   const [matchDatabase, setMatchDatabase] = useState<MatchRecord[]>([]);
 
-  // --- PERSISTENT STORAGE LOGIC ---
+  // --- PERSISTENT STORAGE ---
   useEffect(() => {
     loadDatabase();
   }, []);
@@ -83,8 +84,7 @@ export default function App() {
 
   const saveDatabase = async (newDatabase: MatchRecord[]) => {
     try {
-      const jsonValue = JSON.stringify(newDatabase);
-      await AsyncStorage.setItem(STORAGE_KEY, jsonValue);
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(newDatabase));
     } catch (e) {
       console.error("Error saving database", e);
     }
@@ -136,11 +136,13 @@ export default function App() {
       activeOpacity={0.7}
     >
       {isSelected && (
-        <Image
-          source={tennisBallGraphic}
-          style={styles.ballGraphicSelected}
-          resizeMode="cover"
-        />
+        <View style={styles.imageMask}>
+          <Image
+            source={tennisBallGraphic}
+            style={styles.ballGraphicSelected}
+            resizeMode="cover"
+          />
+        </View>
       )}
       <View style={styles.ballContent}>
         <Text
@@ -165,7 +167,7 @@ export default function App() {
     </TouchableOpacity>
   );
 
-  // --- Engine ---
+  // --- Match Engine ---
   const saveToHistory = () => {
     setHistory([
       ...history,
@@ -234,7 +236,6 @@ export default function App() {
     if (scorer === 1) p1++;
     else p2++;
     let gameWonBy = 0;
-
     if (isTiebreak) {
       if (p1 >= targetTiebreakPoints && p1 - p2 >= 2) gameWonBy = 1;
       else if (p2 >= targetTiebreakPoints && p2 - p1 >= 2) gameWonBy = 2;
@@ -248,7 +249,6 @@ export default function App() {
         p2 = 3;
       }
     }
-
     if (gameWonBy > 0) winGame(gameWonBy);
     else {
       setP1Points(p1);
@@ -274,17 +274,15 @@ export default function App() {
       if (nP1G === 4) setWonBy = 1;
       else if (nP2G === 4) setWonBy = 2;
     }
-
     if (setWonBy > 0) {
-      if (setWonBy === 1 && p1Sets + 1 === 2) {
-        recordMatchToDatabase(1, nP1G, nP2G);
-        setCurrentScreen("setup");
-        resetFullMatch();
-        return;
-      } else if (setWonBy === 2 && p2Sets + 1 === 2) {
-        recordMatchToDatabase(2, nP1G, nP2G);
-        setCurrentScreen("setup");
-        resetFullMatch();
+      if (
+        (setWonBy === 1 && p1Sets + 1 === 2) ||
+        (setWonBy === 2 && p2Sets + 1 === 2)
+      ) {
+        recordMatchToDatabase(setWonBy as 1 | 2, nP1G, nP2G);
+        setCompletedSets([...completedSets, { p1: nP1G, p2: nP2G }]);
+        setMatchWinner(setWonBy as 1 | 2);
+        setCurrentScreen("victory");
         return;
       }
       setCompletedSets([...completedSets, { p1: nP1G, p2: nP2G }]);
@@ -307,7 +305,9 @@ export default function App() {
     setP2Sets(0);
     setCompletedSets([]);
     setHistory([]);
+    setMatchWinner(null);
   };
+
   const getTennisScore = (p: number) => {
     const s = ["0", "15", "30", "40", "Ad"];
     return s[p] || "0";
@@ -331,7 +331,12 @@ export default function App() {
               contentContainerStyle={{ paddingBottom: 60, paddingTop: 60 }}
               showsVerticalScrollIndicator={false}
             >
-              <Text style={styles.titleGhibli}>Match Setup</Text>
+              {/* BRANDED TITLE SECTION */}
+              <View style={styles.headerArea}>
+                <Text style={styles.mainTitleGhibli}>Tennis Points</Text>
+                <View style={styles.titleDivider} />
+                <Text style={styles.setupSubtitleGhibli}>Match Setup</Text>
+              </View>
 
               <View style={styles.glassCard}>
                 <Text style={styles.ghibliLabel}>Player Names</Text>
@@ -548,6 +553,48 @@ export default function App() {
     );
   }
 
+  if (currentScreen === "victory") {
+    const winnerName =
+      matchWinner === 1 ? p1Name || "Player 1" : p2Name || "Player 2";
+    return (
+      <ImageBackground
+        source={courtBackground}
+        style={styles.container}
+        blurRadius={5}
+      >
+        <View
+          style={[
+            styles.overlayDark,
+            { justifyContent: "center", alignItems: "center" },
+          ]}
+        >
+          <Text style={styles.victorySubtitle}>Victory!</Text>
+          <Text style={styles.victoryTitle}>{winnerName}</Text>
+
+          <View style={styles.victoryScoreBox}>
+            {completedSets.map((set, i) => (
+              <View key={i} style={styles.victorySetCard}>
+                <Text style={styles.victorySetText}>
+                  {set.p1} - {set.p2}
+                </Text>
+              </View>
+            ))}
+          </View>
+
+          <TouchableOpacity
+            style={styles.startMatchButton}
+            onPress={() => {
+              setCurrentScreen("setup");
+              resetFullMatch();
+            }}
+          >
+            <Text style={styles.startMatchButtonText}>Return to Menu</Text>
+          </TouchableOpacity>
+        </View>
+      </ImageBackground>
+    );
+  }
+
   return (
     <ImageBackground
       source={courtBackground}
@@ -565,16 +612,21 @@ export default function App() {
               : ""}
           </Text>
         </View>
+
         <View style={styles.tvScoreboardGlass}>
           <View style={styles.scoreRowHeader}>
             <Text style={[styles.scoreCell, styles.nameCell]}></Text>
             {completedSets.map((_, i) => (
               <Text key={i} style={styles.scoreCell}>
-                S{i + 1}
+                Set {i + 1}
               </Text>
             ))}
-            <Text style={[styles.scoreCell, styles.activeHeaderCell]}>G</Text>
-            <Text style={[styles.scoreCell, styles.pointHeaderCell]}>Pts</Text>
+            <Text style={[styles.scoreCell, styles.activeHeaderCell]}>
+              Games
+            </Text>
+            <Text style={[styles.scoreCell, styles.pointHeaderCell]}>
+              Points
+            </Text>
           </View>
           <View style={styles.scoreRow}>
             <Text style={[styles.scoreCell, styles.nameCell]} numberOfLines={1}>
@@ -605,6 +657,7 @@ export default function App() {
             </Text>
           </View>
         </View>
+
         <View style={styles.actionArea}>
           <View style={styles.playerCardGlass}>
             <Text style={styles.actionName}>{p1Name || "P1"}</Text>
@@ -664,9 +717,38 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
 
+  // --- Branded Header Styles ---
+  headerArea: {
+    marginBottom: 30,
+    alignItems: "center",
+  },
+  mainTitleGhibli: {
+    fontSize: 46,
+    fontWeight: "600",
+    fontFamily: GhibliFont,
+    color: "#FDF6E3",
+    textShadowColor: "rgba(0,0,0,0.4)",
+    textShadowRadius: 10,
+    letterSpacing: 2,
+  },
+  titleDivider: {
+    height: 1,
+    width: "40%",
+    backgroundColor: "rgba(253, 246, 227, 0.4)",
+    marginVertical: 8,
+  },
+  setupSubtitleGhibli: {
+    fontSize: 18,
+    fontFamily: GhibliFont,
+    color: "#FDF6E3",
+    opacity: 0.8,
+    letterSpacing: 4,
+    textTransform: "uppercase",
+  },
+
   titleGhibli: {
     fontSize: 38,
-    fontWeight: "600", // Smoother than 'bold'
+    fontWeight: "600",
     fontFamily: GhibliFont,
     textAlign: "center",
     color: "#FDF6E3",
@@ -697,7 +779,6 @@ const styles = StyleSheet.create({
     textShadowRadius: 3,
     letterSpacing: 0.5,
   },
-
   glassCard: {
     backgroundColor: "rgba(255, 255, 255, 0.12)",
     padding: 15,
@@ -729,19 +810,25 @@ const styles = StyleSheet.create({
     borderRadius: 37.5,
     justifyContent: "center",
     alignItems: "center",
-    overflow: "hidden",
+    position: "relative",
+    backgroundColor: "transparent",
   },
   ballWrapperUnselected: { backgroundColor: "rgba(255, 255, 255, 0.28)" },
-  ballWrapperSelected: {
-    backgroundColor: "transparent",
-    transform: [{ scale: 1.15 }],
-  },
-  ballGraphicSelected: {
+  ballWrapperSelected: { transform: [{ scale: 1.15 }] },
+  imageMask: {
     position: "absolute",
     width: "100%",
     height: "100%",
-    transform: [{ scale: 1.25 }],
+    borderRadius: 37.5,
+    overflow: "hidden",
+    backgroundColor: "transparent",
   },
+  ballGraphicSelected: {
+    width: "100%",
+    height: "100%",
+    transform: [{ scale: 1.35 }],
+  },
+
   ballContent: {
     position: "absolute",
     justifyContent: "center",
@@ -751,7 +838,6 @@ const styles = StyleSheet.create({
   ballSubText: { fontSize: 12, fontWeight: "600", fontFamily: GhibliFont },
   textInactive: { color: "#FFF" },
   textActive: { color: "#1a1a1a" },
-
   actionButtonsContainer: { marginTop: 40, gap: 18, paddingBottom: 20 },
   startMatchButton: {
     backgroundColor: "rgba(120, 165, 90, 0.95)",
@@ -779,6 +865,37 @@ const styles = StyleSheet.create({
     color: "#FDF6E3",
     fontSize: 16,
     fontWeight: "600",
+    fontFamily: GhibliFont,
+  },
+
+  victoryTitle: {
+    fontSize: 48,
+    fontWeight: "600",
+    fontFamily: GhibliFont,
+    color: "#DFFF00",
+    textAlign: "center",
+    marginBottom: 30,
+    textShadowColor: "rgba(0,0,0,0.8)",
+    textShadowRadius: 10,
+  },
+  victorySubtitle: {
+    fontSize: 24,
+    fontFamily: GhibliFont,
+    color: "#FDF6E3",
+    textAlign: "center",
+    opacity: 0.8,
+  },
+  victoryScoreBox: { flexDirection: "row", gap: 15, marginBottom: 50 },
+  victorySetCard: {
+    backgroundColor: "rgba(255,255,255,0.2)",
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 15,
+  },
+  victorySetText: {
+    color: "#FFF",
+    fontSize: 24,
+    fontWeight: "bold",
     fontFamily: GhibliFont,
   },
 
@@ -897,11 +1014,11 @@ const styles = StyleSheet.create({
   scoreCell: {
     flex: 1,
     textAlign: "center",
-    fontSize: 16,
+    fontSize: 13,
     color: "#fff",
     fontFamily: GhibliFont,
   },
-  nameCell: { flex: 3, textAlign: "left", fontWeight: "600" },
+  nameCell: { flex: 2.5, textAlign: "left", fontWeight: "600", fontSize: 15 },
   activeHeaderCell: { color: "#DFFF00" },
   pointHeaderCell: { color: "#FFB347" },
   activeCell: {
@@ -954,7 +1071,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
     fontFamily: GhibliFont,
   },
-
   bottomActionsBox: {
     marginTop: "auto",
     marginBottom: 40,
