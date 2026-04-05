@@ -7,12 +7,31 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
+
+// 🔥 FIREBASE SETUP
+import { initializeApp } from "firebase/app";
+import { getDatabase, ref, set } from "firebase/database";
+
+const firebaseConfig = {
+  apiKey: "AiZaSyDU6tKXBeauz7VOVvdq_8-s2tsGu9VWveM",
+  authDomain: "tennis-points-2014a.firebaseapp.com",
+  databaseURL:
+    "https://tennis-points-2014a-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "tennis-points-2014a",
+  storageBucket: "tennis-points-2014a.firebasestorage.app",
+  messagingSenderId: "751703571864",
+  appId: "1:751703571864:web:938d65941c6bf0b919ffed",
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
 
 // --- Type Definitions ---
 type MatchState = {
@@ -64,6 +83,9 @@ export default function App() {
   >([]);
   const [matchWinner, setMatchWinner] = useState<1 | 2 | null>(null);
 
+  // 🔥 LIVE SYNC STATE
+  const [matchId, setMatchId] = useState<string | null>(null);
+
   // --- History & Database State ---
   const [history, setHistory] = useState<MatchState[]>([]);
   const [matchDatabase, setMatchDatabase] = useState<MatchRecord[]>([]);
@@ -72,6 +94,26 @@ export default function App() {
   useEffect(() => {
     loadDatabase();
   }, []);
+
+  // 🔥 FIREBASE LIVE SYNC ENGINE
+  useEffect(() => {
+    if (matchId) {
+      const matchRef = ref(db, "live_matches/" + matchId);
+      set(matchRef, {
+        p1Name: p1Name || "Player 1",
+        p2Name: p2Name || "Player 2",
+        p1Points: isTiebreak ? p1Points : getTennisScore(p1Points),
+        p2Points: isTiebreak ? p2Points : getTennisScore(p2Points),
+        p1Games,
+        p2Games,
+        p1Sets,
+        p2Sets,
+        completedSets,
+        isTiebreak,
+        lastUpdated: Date.now(),
+      });
+    }
+  }, [p1Points, p2Points, p1Games, p2Games, p1Sets, p2Sets, matchId]);
 
   const loadDatabase = async () => {
     try {
@@ -114,6 +156,20 @@ export default function App() {
 
   const tennisBallGraphic = require("../../assets/images/tennis_ball_graphic.png");
   const courtBackground = require("../../assets/images/court_background.png");
+
+  // 🔥 LIVE SHARE ACTION
+  const handleLiveShare = async () => {
+    const newId = `LOHJA-${Math.floor(1000 + Math.random() * 9000)}`;
+    setMatchId(newId);
+    const shareUrl = `https://mikkojolin.github.io/tennis-points/?match=${newId}`;
+    try {
+      await Share.share({
+        message: `🎾 Live Match from Lohja!\n${p1Name || "P1"} vs ${p2Name || "P2"}\nLink: ${shareUrl}`,
+      });
+    } catch (e) {
+      console.log("Share failed");
+    }
+  };
 
   // --- UI Components ---
   const GhibliTennisBallDial = ({
@@ -306,6 +362,7 @@ export default function App() {
     setCompletedSets([]);
     setHistory([]);
     setMatchWinner(null);
+    setMatchId(null);
   };
 
   const getTennisScore = (p: number) => {
@@ -603,6 +660,16 @@ export default function App() {
     >
       <View style={styles.overlayLight}>
         <Text style={styles.titleMatch}>Court View</Text>
+
+        {/* 🔥 LIVE BROADCAST INDICATOR */}
+        {matchId && (
+          <View style={styles.liveIndicator}>
+            <Text style={styles.liveIndicatorText}>
+              ● LIVE BROADCAST: {matchId}
+            </Text>
+          </View>
+        )}
+
         <View style={styles.ruleBanner}>
           <Text style={styles.ruleInfo}>
             {format === "classic" ? "Classic" : "Fast4"} |{" "}
@@ -618,15 +685,11 @@ export default function App() {
             <Text style={[styles.scoreCell, styles.nameCell]}></Text>
             {completedSets.map((_, i) => (
               <Text key={i} style={styles.scoreCell}>
-                Set {i + 1}
+                S{i + 1}
               </Text>
             ))}
-            <Text style={[styles.scoreCell, styles.activeHeaderCell]}>
-              Games
-            </Text>
-            <Text style={[styles.scoreCell, styles.pointHeaderCell]}>
-              Points
-            </Text>
+            <Text style={[styles.scoreCell, styles.activeHeaderCell]}>G</Text>
+            <Text style={[styles.scoreCell, styles.pointHeaderCell]}>P</Text>
           </View>
           <View style={styles.scoreRow}>
             <Text style={[styles.scoreCell, styles.nameCell]} numberOfLines={1}>
@@ -679,6 +742,14 @@ export default function App() {
           </View>
         </View>
         <View style={styles.bottomActionsBox}>
+          {/* 🔥 NEW LIVE SHARE BUTTON */}
+          <TouchableOpacity
+            style={styles.liveShareBtn}
+            onPress={handleLiveShare}
+          >
+            <Text style={styles.liveShareBtnText}>📡 Share Live Score</Text>
+          </TouchableOpacity>
+
           {history.length > 0 && (
             <TouchableOpacity style={styles.undoButton} onPress={handleUndo}>
               <Text style={styles.undoButtonText}>↩ Undo</Text>
@@ -1096,4 +1167,24 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     fontFamily: GhibliFont,
   },
+
+  // 🔥 LIVE SYNC STYLES
+  liveIndicator: {
+    backgroundColor: "rgba(255,0,0,0.7)",
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 10,
+    marginBottom: 10,
+    alignSelf: "center",
+  },
+  liveIndicatorText: { color: "#fff", fontSize: 11, fontWeight: "bold" },
+  liveShareBtn: {
+    backgroundColor: "#FDF6E3",
+    paddingVertical: 14,
+    paddingHorizontal: 35,
+    borderRadius: 30,
+    borderWidth: 1,
+    borderColor: "#7a9e7e",
+  },
+  liveShareBtnText: { color: "#7a9e7e", fontWeight: "bold", fontSize: 16 },
 });
