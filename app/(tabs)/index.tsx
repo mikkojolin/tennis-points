@@ -249,7 +249,7 @@ export default function App() {
         p2 = 3;
       }
     }
-    if (gameWonBy > 0) winGame(gameWonBy);
+    if (gameWonBy > 0) winGame(gameWonBy as 1 | 2);
     else {
       setP1Points(p1);
       setP2Points(p2);

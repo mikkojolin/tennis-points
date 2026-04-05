@@ -5,30 +5,32 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/images/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true
+    },
     "android": {
-      "package": "com.yourname.tennispoints",
+      "package": "com.olinm.tennispoints",
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "foregroundImage": "./assets/images/icon.png",
         "backgroundColor": "#2b3a2e"
       }
+    },
+    "web": {
+      "favicon": "./assets/images/favicon.png"
     },
     "extra": {
       "eas": {
         "projectId": "f7244711-d82d-4e9b-876f-0987542210b5"
       }
     },
-    "plugins": [
-      "@react-native-firebase/app"
-    ]
-  }
-}
-{
-  "expo": {
-    "android": {
-      "googleServicesFile": "./google-services.json" 
-    },
-    "plugins": [
-      "@react-native-firebase/app"
-    ]
+    "plugins": ["@react-native-firebase/app", "@react-native-firebase/database"]
   }
 }
