@@ -1,7 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect, useState } from "react";
 import {
-  Alert,
   Image,
   ImageBackground,
   KeyboardAvoidingView,
@@ -12,10 +11,10 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 
-// 🔥 FIREBASE SETUP
+// 🔥 FIREBASE INITIALIZATION
 import { initializeApp } from "firebase/app";
 import { getDatabase, ref, set } from "firebase/database";
 
@@ -32,6 +31,10 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
+
+// --- Assets ---
+const tennisBallGraphic = require("../../assets/images/tennis_ball_graphic.png");
+const courtBackground = require("../../assets/images/court_background.png");
 
 // --- Type Definitions ---
 type MatchState = {
@@ -57,12 +60,64 @@ type MatchRecord = {
 
 const STORAGE_KEY = "@tennis_match_database";
 
+// --- 1. UI COMPONENTS (Defined outside App to fix "is not defined" errors) ---
+const GhibliTennisBallDial = ({
+  title,
+  subTitle,
+  isSelected,
+  onPress,
+}: {
+  title: string;
+  subTitle?: string;
+  isSelected: boolean;
+  onPress: () => void;
+}) => (
+  <TouchableOpacity
+    style={[
+      styles.ballWrapper,
+      isSelected ? styles.ballWrapperSelected : styles.ballWrapperUnselected,
+    ]}
+    onPress={onPress}
+    activeOpacity={0.7}
+  >
+    {isSelected && (
+      <View style={styles.imageMask}>
+        <Image
+          source={tennisBallGraphic}
+          style={styles.ballGraphicSelected}
+          resizeMode="cover"
+        />
+      </View>
+    )}
+    <View style={styles.ballContent}>
+      <Text
+        style={[
+          styles.ballText,
+          isSelected ? styles.textActive : styles.textInactive,
+        ]}
+      >
+        {title}
+      </Text>
+      {subTitle && (
+        <Text
+          style={[
+            styles.ballSubText,
+            isSelected ? styles.textActive : styles.textInactive,
+          ]}
+        >
+          {subTitle}
+        </Text>
+      )}
+    </View>
+  </TouchableOpacity>
+);
+
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<
     "setup" | "match" | "history" | "victory"
   >("setup");
 
-  // --- Setup State ---
+  // --- State ---
   const [p1Name, setP1Name] = useState("");
   const [p2Name, setP2Name] = useState("");
   const [format, setFormat] = useState("classic");
@@ -70,8 +125,6 @@ export default function App() {
   const [matchTbLength, setMatchTbLength] = useState(10);
   const [setTbLength, setSetTbLength] = useState(7);
   const [noAdRule, setNoAdRule] = useState(false);
-
-  // --- Match Score State ---
   const [p1Points, setP1Points] = useState(0);
   const [p2Points, setP2Points] = useState(0);
   const [p1Games, setP1Games] = useState(0);
@@ -82,20 +135,36 @@ export default function App() {
     { p1: number; p2: number }[]
   >([]);
   const [matchWinner, setMatchWinner] = useState<1 | 2 | null>(null);
-
-  // 🔥 LIVE SYNC STATE
   const [matchId, setMatchId] = useState<string | null>(null);
-
-  // --- History & Database State ---
   const [history, setHistory] = useState<MatchState[]>([]);
   const [matchDatabase, setMatchDatabase] = useState<MatchRecord[]>([]);
 
-  // --- PERSISTENT STORAGE ---
+  // --- 2. LOGIC HELPERS (Defined before useEffect to fix order errors) ---
+  const isMatchTiebreak = p1Sets + p2Sets === 2 && thirdSet === "tiebreak";
+  const isSetTiebreak =
+    (format === "classic" && p1Games === 6 && p2Games === 6) ||
+    (format === "fast4" && p1Games === 3 && p2Games === 3);
+  const isTiebreak = isMatchTiebreak || isSetTiebreak;
+  const targetTiebreakPoints = isMatchTiebreak ? matchTbLength : setTbLength;
+
+  const getTennisScore = (p: number) => {
+    const s = ["0", "15", "30", "40", "Ad"];
+    return s[p] || "0";
+  };
+
+  // --- 3. SIDE EFFECTS ---
   useEffect(() => {
+    const loadDatabase = async () => {
+      try {
+        const jsonValue = await AsyncStorage.getItem(STORAGE_KEY);
+        if (jsonValue != null) setMatchDatabase(JSON.parse(jsonValue));
+      } catch (err) {
+        console.error("Database load error", err);
+      }
+    };
     loadDatabase();
   }, []);
 
-  // 🔥 FIREBASE LIVE SYNC ENGINE
   useEffect(() => {
     if (matchId) {
       const matchRef = ref(db, "live_matches/" + matchId);
@@ -111,120 +180,45 @@ export default function App() {
         completedSets,
         isTiebreak,
         lastUpdated: Date.now(),
-      });
+      }).catch((err) => console.log("Firebase Error:", err));
     }
-  }, [p1Points, p2Points, p1Games, p2Games, p1Sets, p2Sets, matchId]);
+  }, [
+    p1Points,
+    p2Points,
+    p1Games,
+    p2Games,
+    p1Sets,
+    p2Sets,
+    completedSets,
+    isTiebreak,
+    p1Name,
+    p2Name,
+    matchId,
+  ]);
 
-  const loadDatabase = async () => {
-    try {
-      const jsonValue = await AsyncStorage.getItem(STORAGE_KEY);
-      if (jsonValue != null) setMatchDatabase(JSON.parse(jsonValue));
-    } catch (e) {
-      console.error("Error loading database", e);
-    }
-  };
-
+  // --- 4. ENGINE FUNCTIONS ---
   const saveDatabase = async (newDatabase: MatchRecord[]) => {
     try {
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(newDatabase));
-    } catch (e) {
-      console.error("Error saving database", e);
+    } catch (err) {
+      console.error("Save error", err);
     }
   };
 
-  const clearAllHistory = () => {
-    Alert.alert("Clear Database", "Delete all past matches?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Delete",
-        style: "destructive",
-        onPress: async () => {
-          setMatchDatabase([]);
-          await AsyncStorage.removeItem(STORAGE_KEY);
-        },
-      },
-    ]);
-  };
-
-  // --- Logic Helpers ---
-  const isMatchTiebreak = p1Sets + p2Sets === 2 && thirdSet === "tiebreak";
-  const isSetTiebreak =
-    (format === "classic" && p1Games === 6 && p2Games === 6) ||
-    (format === "fast4" && p1Games === 3 && p2Games === 3);
-  const isTiebreak = isMatchTiebreak || isSetTiebreak;
-  const targetTiebreakPoints = isMatchTiebreak ? matchTbLength : setTbLength;
-
-  const tennisBallGraphic = require("../../assets/images/tennis_ball_graphic.png");
-  const courtBackground = require("../../assets/images/court_background.png");
-
-  // 🔥 LIVE SHARE ACTION
   const handleLiveShare = async () => {
     const newId = `LOHJA-${Math.floor(1000 + Math.random() * 9000)}`;
     setMatchId(newId);
     const shareUrl = `https://mikkojolin.github.io/tennis-points/?match=${newId}`;
     try {
       await Share.share({
-        message: `🎾 Live Match from Lohja!\n${p1Name || "P1"} vs ${p2Name || "P2"}\nLink: ${shareUrl}`,
+        message: `🎾 Live Match!\n${p1Name || "P1"} vs ${p2Name || "P2"}\nLink: ${shareUrl}`,
       });
-    } catch (e) {
+    } catch {
       console.log("Share failed");
     }
   };
 
-  // --- UI Components ---
-  const GhibliTennisBallDial = ({
-    title,
-    subTitle,
-    isSelected,
-    onPress,
-  }: {
-    title: string;
-    subTitle?: string;
-    isSelected: boolean;
-    onPress: () => void;
-  }) => (
-    <TouchableOpacity
-      style={[
-        styles.ballWrapper,
-        isSelected ? styles.ballWrapperSelected : styles.ballWrapperUnselected,
-      ]}
-      onPress={onPress}
-      activeOpacity={0.7}
-    >
-      {isSelected && (
-        <View style={styles.imageMask}>
-          <Image
-            source={tennisBallGraphic}
-            style={styles.ballGraphicSelected}
-            resizeMode="cover"
-          />
-        </View>
-      )}
-      <View style={styles.ballContent}>
-        <Text
-          style={[
-            styles.ballText,
-            isSelected ? styles.textActive : styles.textInactive,
-          ]}
-        >
-          {title}
-        </Text>
-        {subTitle && (
-          <Text
-            style={[
-              styles.ballSubText,
-              isSelected ? styles.textActive : styles.textInactive,
-            ]}
-          >
-            {subTitle}
-          </Text>
-        )}
-      </View>
-    </TouchableOpacity>
-  );
-
-  // --- Match Engine ---
-  const saveToHistory = () => {
+  const handleScore = (scorer: 1 | 2) => {
     setHistory([
       ...history,
       {
@@ -237,56 +231,6 @@ export default function App() {
         completedSets: [...completedSets],
       },
     ]);
-  };
-
-  const handleUndo = () => {
-    if (history.length === 0) return;
-    const newHistory = [...history];
-    const prev = newHistory.pop();
-    if (prev) {
-      setP1Points(prev.p1Points);
-      setP2Points(prev.p2Points);
-      setP1Games(prev.p1Games);
-      setP2Games(prev.p2Games);
-      setP1Sets(prev.p1Sets);
-      setP2Sets(prev.p2Sets);
-      setCompletedSets(prev.completedSets);
-      setHistory(newHistory);
-    }
-  };
-
-  const recordMatchToDatabase = (
-    winner: 1 | 2,
-    finalSetP1: number,
-    finalSetP2: number,
-  ) => {
-    const finalScoreArray = [
-      ...completedSets,
-      { p1: finalSetP1, p2: finalSetP2 },
-    ];
-    const newRecord: MatchRecord = {
-      id: Date.now().toString(),
-      date:
-        new Date().toLocaleDateString() +
-        " " +
-        new Date().toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-      p1Name: p1Name || "Player 1",
-      p2Name: p2Name || "Player 2",
-      winner,
-      format: format === "classic" ? "Classic" : "Fast4",
-      thirdSetRule: thirdSet === "full" ? "Full Set" : `TB to ${matchTbLength}`,
-      score: finalScoreArray,
-    };
-    const updatedDB = [newRecord, ...matchDatabase];
-    setMatchDatabase(updatedDB);
-    saveDatabase(updatedDB);
-  };
-
-  const handleScore = (scorer: 1 | 2) => {
-    saveToHistory();
     let p1 = p1Points;
     let p2 = p2Points;
     if (scorer === 1) p1++;
@@ -305,50 +249,74 @@ export default function App() {
         p2 = 3;
       }
     }
-    if (gameWonBy > 0) winGame(gameWonBy as 1 | 2);
-    else {
+    if (gameWonBy > 0) {
+      setP1Points(0);
+      setP2Points(0);
+      let nP1G = p1Games;
+      let nP2G = p2Games;
+      if (gameWonBy === 1) nP1G++;
+      else nP2G++;
+      let setWonBy = 0;
+      if (isMatchTiebreak || isSetTiebreak) setWonBy = gameWonBy;
+      else if (format === "classic") {
+        if (nP1G >= 6 && nP1G - nP2G >= 2) setWonBy = 1;
+        else if (nP2G >= 6 && nP2G - nP1G >= 2) setWonBy = 2;
+      } else {
+        if (nP1G === 4) setWonBy = 1;
+        else if (nP2G === 4) setWonBy = 2;
+      }
+      if (setWonBy > 0) {
+        if (
+          (setWonBy === 1 && p1Sets + 1 === 2) ||
+          (setWonBy === 2 && p2Sets + 1 === 2)
+        ) {
+          const newRecord: MatchRecord = {
+            id: Date.now().toString(),
+            date: new Date().toLocaleString(),
+            p1Name: p1Name || "P1",
+            p2Name: p2Name || "P2",
+            winner: setWonBy as 1 | 2,
+            format: format === "classic" ? "Classic" : "Fast4",
+            thirdSetRule:
+              thirdSet === "full" ? "Full Set" : `TB to ${matchTbLength}`,
+            score: [...completedSets, { p1: nP1G, p2: nP2G }],
+          };
+          const updatedDB = [newRecord, ...matchDatabase];
+          setMatchDatabase(updatedDB);
+          saveDatabase(updatedDB);
+          setCompletedSets([...completedSets, { p1: nP1G, p2: nP2G }]);
+          setMatchWinner(setWonBy as 1 | 2);
+          setCurrentScreen("victory");
+        } else {
+          setCompletedSets([...completedSets, { p1: nP1G, p2: nP2G }]);
+          setP1Games(0);
+          setP2Games(0);
+          if (setWonBy === 1) setP1Sets(p1Sets + 1);
+          else setP2Sets(p2Sets + 1);
+        }
+      } else {
+        setP1Games(nP1G);
+        setP2Games(nP2G);
+      }
+    } else {
       setP1Points(p1);
       setP2Points(p2);
     }
   };
 
-  const winGame = (winner: 1 | 2) => {
-    setP1Points(0);
-    setP2Points(0);
-    let nP1G = p1Games;
-    let nP2G = p2Games;
-    if (winner === 1) nP1G++;
-    else nP2G++;
-
-    let setWonBy = 0;
-    if (isMatchTiebreak || isSetTiebreak) {
-      setWonBy = winner;
-    } else if (format === "classic") {
-      if (nP1G >= 6 && nP1G - nP2G >= 2) setWonBy = 1;
-      else if (nP2G >= 6 && nP2G - nP1G >= 2) setWonBy = 2;
-    } else if (format === "fast4") {
-      if (nP1G === 4) setWonBy = 1;
-      else if (nP2G === 4) setWonBy = 2;
-    }
-    if (setWonBy > 0) {
-      if (
-        (setWonBy === 1 && p1Sets + 1 === 2) ||
-        (setWonBy === 2 && p2Sets + 1 === 2)
-      ) {
-        recordMatchToDatabase(setWonBy as 1 | 2, nP1G, nP2G);
-        setCompletedSets([...completedSets, { p1: nP1G, p2: nP2G }]);
-        setMatchWinner(setWonBy as 1 | 2);
-        setCurrentScreen("victory");
-        return;
-      }
-      setCompletedSets([...completedSets, { p1: nP1G, p2: nP2G }]);
-      setP1Games(0);
-      setP2Games(0);
-      if (setWonBy === 1) setP1Sets(p1Sets + 1);
-      else setP2Sets(p2Sets + 1);
-    } else {
-      setP1Games(nP1G);
-      setP2Games(nP2G);
+  const handleUndo = () => {
+    if (history.length === 0) return;
+    const newHistory = [...history];
+    const prev = newHistory.pop();
+    if (prev) {
+      setP1Points(prev.p1Points);
+      setP2Points(prev.p2Points);
+      setP1Games(prev.p1Games);
+      setP2Games(prev.p2Games);
+      setP1Sets(prev.p1Sets);
+      setP2Sets(prev.p2Sets);
+      setCompletedSets(prev.completedSets);
+      setHistory(newHistory);
     }
   };
 
@@ -365,13 +333,7 @@ export default function App() {
     setMatchId(null);
   };
 
-  const getTennisScore = (p: number) => {
-    const s = ["0", "15", "30", "40", "Ad"];
-    return s[p] || "0";
-  };
-
-  // --- Screens ---
-
+  // --- 5. SCREENS ---
   if (currentScreen === "setup") {
     return (
       <ImageBackground
@@ -388,13 +350,11 @@ export default function App() {
               contentContainerStyle={{ paddingBottom: 60, paddingTop: 60 }}
               showsVerticalScrollIndicator={false}
             >
-              {/* BRANDED TITLE SECTION */}
               <View style={styles.headerArea}>
                 <Text style={styles.mainTitleGhibli}>Tennis Points</Text>
                 <View style={styles.titleDivider} />
                 <Text style={styles.setupSubtitleGhibli}>Match Setup</Text>
               </View>
-
               <View style={styles.glassCard}>
                 <Text style={styles.ghibliLabel}>Player Names</Text>
                 <TextInput
@@ -412,7 +372,6 @@ export default function App() {
                   onChangeText={setP2Name}
                 />
               </View>
-
               <Text style={styles.ghibliLabel}>Game Format</Text>
               <View style={styles.ballOptionContainer}>
                 <GhibliTennisBallDial
@@ -428,7 +387,6 @@ export default function App() {
                   onPress={() => setFormat("fast4")}
                 />
               </View>
-
               <Text style={styles.ghibliLabel}>Deuce Rule</Text>
               <View style={styles.ballOptionContainer}>
                 <GhibliTennisBallDial
@@ -444,7 +402,6 @@ export default function App() {
                   onPress={() => setNoAdRule(true)}
                 />
               </View>
-
               <Text style={styles.ghibliLabel}>Set Tiebreak Length</Text>
               <View style={styles.ballOptionContainer}>
                 <GhibliTennisBallDial
@@ -466,7 +423,6 @@ export default function App() {
                   onPress={() => setSetTbLength(10)}
                 />
               </View>
-
               <Text style={styles.ghibliLabel}>3rd Set Rules</Text>
               <View style={styles.ballOptionContainer}>
                 <GhibliTennisBallDial
@@ -482,7 +438,6 @@ export default function App() {
                   onPress={() => setThirdSet("tiebreak")}
                 />
               </View>
-
               {thirdSet === "tiebreak" && (
                 <>
                   <Text style={styles.ghibliLabel}>Match Tiebreak Length</Text>
@@ -508,7 +463,6 @@ export default function App() {
                   </View>
                 </>
               )}
-
               <View style={styles.actionButtonsContainer}>
                 <TouchableOpacity
                   style={styles.startMatchButton}
@@ -590,7 +544,10 @@ export default function App() {
                 ))}
                 <TouchableOpacity
                   style={styles.clearButton}
-                  onPress={clearAllHistory}
+                  onPress={() => {
+                    setMatchDatabase([]);
+                    AsyncStorage.removeItem(STORAGE_KEY);
+                  }}
                 >
                   <Text style={styles.clearButtonText}>
                     🗑️ Clear All Matches
@@ -627,7 +584,6 @@ export default function App() {
         >
           <Text style={styles.victorySubtitle}>Victory!</Text>
           <Text style={styles.victoryTitle}>{winnerName}</Text>
-
           <View style={styles.victoryScoreBox}>
             {completedSets.map((set, i) => (
               <View key={i} style={styles.victorySetCard}>
@@ -637,7 +593,6 @@ export default function App() {
               </View>
             ))}
           </View>
-
           <TouchableOpacity
             style={styles.startMatchButton}
             onPress={() => {
@@ -660,8 +615,6 @@ export default function App() {
     >
       <View style={styles.overlayLight}>
         <Text style={styles.titleMatch}>Court View</Text>
-
-        {/* 🔥 LIVE BROADCAST INDICATOR */}
         {matchId && (
           <View style={styles.liveIndicator}>
             <Text style={styles.liveIndicatorText}>
@@ -669,7 +622,6 @@ export default function App() {
             </Text>
           </View>
         )}
-
         <View style={styles.ruleBanner}>
           <Text style={styles.ruleInfo}>
             {format === "classic" ? "Classic" : "Fast4"} |{" "}
@@ -679,7 +631,6 @@ export default function App() {
               : ""}
           </Text>
         </View>
-
         <View style={styles.tvScoreboardGlass}>
           <View style={styles.scoreRowHeader}>
             <Text style={[styles.scoreCell, styles.nameCell]}></Text>
@@ -720,7 +671,6 @@ export default function App() {
             </Text>
           </View>
         </View>
-
         <View style={styles.actionArea}>
           <View style={styles.playerCardGlass}>
             <Text style={styles.actionName}>{p1Name || "P1"}</Text>
@@ -742,14 +692,12 @@ export default function App() {
           </View>
         </View>
         <View style={styles.bottomActionsBox}>
-          {/* 🔥 NEW LIVE SHARE BUTTON */}
           <TouchableOpacity
             style={styles.liveShareBtn}
             onPress={handleLiveShare}
           >
             <Text style={styles.liveShareBtnText}>📡 Share Live Score</Text>
           </TouchableOpacity>
-
           {history.length > 0 && (
             <TouchableOpacity style={styles.undoButton} onPress={handleUndo}>
               <Text style={styles.undoButtonText}>↩ Undo</Text>
@@ -770,10 +718,6 @@ export default function App() {
   );
 }
 
-// --- Smooth Styling ---
-
-const GhibliFont = Platform.OS === "ios" ? "Cochin" : "serif";
-
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#2b3a2e" },
   overlayDark: {
@@ -787,16 +731,11 @@ const styles = StyleSheet.create({
     paddingTop: 60,
     paddingHorizontal: 20,
   },
-
-  // --- Branded Header Styles ---
-  headerArea: {
-    marginBottom: 30,
-    alignItems: "center",
-  },
+  headerArea: { marginBottom: 30, alignItems: "center" },
   mainTitleGhibli: {
     fontSize: 46,
     fontWeight: "600",
-    fontFamily: GhibliFont,
+    fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
     color: "#FDF6E3",
     textShadowColor: "rgba(0,0,0,0.4)",
     textShadowRadius: 10,
@@ -810,17 +749,16 @@ const styles = StyleSheet.create({
   },
   setupSubtitleGhibli: {
     fontSize: 18,
-    fontFamily: GhibliFont,
+    fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
     color: "#FDF6E3",
     opacity: 0.8,
     letterSpacing: 4,
     textTransform: "uppercase",
   },
-
   titleGhibli: {
     fontSize: 38,
     fontWeight: "600",
-    fontFamily: GhibliFont,
+    fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
     textAlign: "center",
     color: "#FDF6E3",
     marginBottom: 25,
@@ -831,7 +769,7 @@ const styles = StyleSheet.create({
   titleMatch: {
     fontSize: 30,
     fontWeight: "600",
-    fontFamily: GhibliFont,
+    fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
     textAlign: "center",
     color: "#FDF6E3",
     marginBottom: 15,
@@ -841,7 +779,7 @@ const styles = StyleSheet.create({
   ghibliLabel: {
     fontSize: 19,
     fontWeight: "600",
-    fontFamily: GhibliFont,
+    fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
     marginTop: 20,
     marginBottom: 10,
     color: "#FDF6E3",
@@ -866,9 +804,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#fff",
     marginBottom: 10,
-    fontFamily: GhibliFont,
+    fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
   },
-
   ballOptionContainer: {
     flexDirection: "row",
     justifyContent: "center",
@@ -899,14 +836,21 @@ const styles = StyleSheet.create({
     height: "100%",
     transform: [{ scale: 1.35 }],
   },
-
   ballContent: {
     position: "absolute",
     justifyContent: "center",
     alignItems: "center",
   },
-  ballText: { fontSize: 16, fontWeight: "bold", fontFamily: GhibliFont },
-  ballSubText: { fontSize: 12, fontWeight: "600", fontFamily: GhibliFont },
+  ballText: {
+    fontSize: 16,
+    fontWeight: "bold",
+    fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
+  },
+  ballSubText: {
+    fontSize: 12,
+    fontWeight: "600",
+    fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
+  },
   textInactive: { color: "#FFF" },
   textActive: { color: "#1a1a1a" },
   actionButtonsContainer: { marginTop: 40, gap: 18, paddingBottom: 20 },
@@ -923,7 +867,7 @@ const styles = StyleSheet.create({
     color: "#FDF6E3",
     fontSize: 20,
     fontWeight: "600",
-    fontFamily: GhibliFont,
+    fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
     letterSpacing: 0.5,
   },
   historyButton: {
@@ -936,13 +880,12 @@ const styles = StyleSheet.create({
     color: "#FDF6E3",
     fontSize: 16,
     fontWeight: "600",
-    fontFamily: GhibliFont,
+    fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
   },
-
   victoryTitle: {
     fontSize: 48,
     fontWeight: "600",
-    fontFamily: GhibliFont,
+    fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
     color: "#DFFF00",
     textAlign: "center",
     marginBottom: 30,
@@ -951,7 +894,7 @@ const styles = StyleSheet.create({
   },
   victorySubtitle: {
     fontSize: 24,
-    fontFamily: GhibliFont,
+    fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
     color: "#FDF6E3",
     textAlign: "center",
     opacity: 0.8,
@@ -967,9 +910,8 @@ const styles = StyleSheet.create({
     color: "#FFF",
     fontSize: 24,
     fontWeight: "bold",
-    fontFamily: GhibliFont,
+    fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
   },
-
   dbCard: {
     backgroundColor: "rgba(255, 255, 255, 0.15)",
     borderRadius: 24,
@@ -986,12 +928,16 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
     marginBottom: 10,
   },
-  dbDate: { color: "#EEE", fontSize: 12, fontFamily: GhibliFont },
+  dbDate: {
+    color: "#EEE",
+    fontSize: 12,
+    fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
+  },
   dbFormat: {
     color: "#DFFF00",
     fontSize: 12,
     fontWeight: "600",
-    fontFamily: GhibliFont,
+    fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
   },
   dbPlayersRow: {
     flexDirection: "row",
@@ -1004,10 +950,14 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     flex: 1,
     textAlign: "center",
-    fontFamily: GhibliFont,
+    fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
   },
   dbWinnerText: { color: "#DFFF00", fontWeight: "900" },
-  dbVsText: { color: "#AAA", fontFamily: GhibliFont, fontSize: 14 },
+  dbVsText: {
+    color: "#AAA",
+    fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
+    fontSize: 14,
+  },
   dbScoreContainer: { flexDirection: "row", justifyContent: "center", gap: 10 },
   dbSetBox: {
     backgroundColor: "rgba(0,0,0,0.3)",
@@ -1019,9 +969,8 @@ const styles = StyleSheet.create({
     color: "#FFF",
     fontSize: 16,
     fontWeight: "600",
-    fontFamily: GhibliFont,
+    fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
   },
-
   backButton: {
     backgroundColor: "rgba(0, 0, 0, 0.45)",
     padding: 16,
@@ -1033,14 +982,14 @@ const styles = StyleSheet.create({
     color: "#FFF",
     fontSize: 16,
     fontWeight: "600",
-    fontFamily: GhibliFont,
+    fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
   },
   clearButton: { padding: 15, alignItems: "center" },
   clearButtonText: {
     color: "#FF6B6B",
     fontSize: 14,
     fontWeight: "600",
-    fontFamily: GhibliFont,
+    fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
   },
   emptyStateContainer: {
     flex: 1,
@@ -1048,7 +997,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: 100,
   },
-
   ruleBanner: {
     backgroundColor: "rgba(255, 255, 255, 0.88)",
     padding: 12,
@@ -1060,7 +1008,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "bold",
     color: "#2b3a2e",
-    fontFamily: GhibliFont,
+    fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
   },
   tvScoreboardGlass: {
     backgroundColor: "rgba(20, 30, 20, 0.82)",
@@ -1087,7 +1035,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
     fontSize: 13,
     color: "#fff",
-    fontFamily: GhibliFont,
+    fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
   },
   nameCell: { flex: 2.5, textAlign: "left", fontWeight: "600", fontSize: 15 },
   activeHeaderCell: { color: "#DFFF00" },
@@ -1096,15 +1044,14 @@ const styles = StyleSheet.create({
     color: "#DFFF00",
     fontWeight: "600",
     fontSize: 18,
-    fontFamily: GhibliFont,
+    fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
   },
   pointCell: {
     color: "#FFB347",
     fontWeight: "600",
     fontSize: 18,
-    fontFamily: GhibliFont,
+    fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
   },
-
   actionArea: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -1124,7 +1071,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#FDF6E3",
     marginBottom: 15,
-    fontFamily: GhibliFont,
+    fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
   },
   scoreButton: {
     backgroundColor: "rgba(255, 179, 71, 0.95)",
@@ -1140,7 +1087,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     textAlign: "center",
-    fontFamily: GhibliFont,
+    fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
   },
   bottomActionsBox: {
     marginTop: "auto",
@@ -1158,17 +1105,15 @@ const styles = StyleSheet.create({
     color: "#FDF6E3",
     fontSize: 15,
     fontWeight: "600",
-    fontFamily: GhibliFont,
+    fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
   },
   cancelButton: { padding: 10 },
   cancelButtonText: {
     color: "#FF6B6B",
     fontSize: 15,
     fontWeight: "600",
-    fontFamily: GhibliFont,
+    fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
   },
-
-  // 🔥 LIVE SYNC STYLES
   liveIndicator: {
     backgroundColor: "rgba(255,0,0,0.7)",
     paddingHorizontal: 12,
