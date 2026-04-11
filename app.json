@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Tennis Points",
-    "slug": "tennis-points",
+    "name": "MatchPoint",
+    "slug": "matchpoint",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -12,7 +12,7 @@
       "backgroundColor": "#ffffff"
     },
     "android": {
-      "package": "com.olinm.tennispoints",
+      "package": "com.olinm.matchpoint",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/icon.png",
         "backgroundColor": "#2b3a2e"

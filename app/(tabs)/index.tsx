@@ -11,7 +11,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
 
 // 🔥 FIREBASE INITIALIZATION
@@ -35,6 +35,8 @@ const db = getDatabase(app);
 // --- Assets ---
 const tennisBallGraphic = require("../../assets/images/tennis_ball_graphic.png");
 const courtBackground = require("../../assets/images/court_background.png");
+const volleyBallGraphic = require("../../assets/images/volleyball.png");
+const beachBackground = require("../../assets/images/beach.png");
 
 // --- Type Definitions ---
 type MatchState = {
@@ -53,25 +55,16 @@ type MatchRecord = {
   p1Name: string;
   p2Name: string;
   winner: 1 | 2;
+  sport: string;
   format: string;
   thirdSetRule: string;
   score: { p1: number; p2: number }[];
 };
 
-const STORAGE_KEY = "@tennis_match_database";
+const STORAGE_KEY = "@sports_match_database";
 
-// --- 1. UI COMPONENTS (Defined outside App to fix "is not defined" errors) ---
-const GhibliTennisBallDial = ({
-  title,
-  subTitle,
-  isSelected,
-  onPress,
-}: {
-  title: string;
-  subTitle?: string;
-  isSelected: boolean;
-  onPress: () => void;
-}) => (
+// --- UI COMPONENTS ---
+const SportDial = ({ title, subTitle, isSelected, onPress, icon }: any) => (
   <TouchableOpacity
     style={[
       styles.ballWrapper,
@@ -83,7 +76,7 @@ const GhibliTennisBallDial = ({
     {isSelected && (
       <View style={styles.imageMask}>
         <Image
-          source={tennisBallGraphic}
+          source={icon}
           style={styles.ballGraphicSelected}
           resizeMode="cover"
         />
@@ -114,21 +107,24 @@ const GhibliTennisBallDial = ({
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<
-    "setup" | "match" | "history" | "victory"
-  >("setup");
+    | "sportSelect"
+    | "setup"
+    | "volleySetup"
+    | "match"
+    | "volleyMatch"
+    | "history"
+    | "victory"
+  >("sportSelect");
 
-  // --- State ---
+  const [selectedSport, setSelectedSport] = useState<"tennis" | "volleyball">(
+    "tennis",
+  );
+
+  // --- Shared Setup State ---
   const [p1Name, setP1Name] = useState("");
   const [p2Name, setP2Name] = useState("");
-  const [format, setFormat] = useState("classic");
-  const [thirdSet, setThirdSet] = useState("tiebreak");
-  const [matchTbLength, setMatchTbLength] = useState(10);
-  const [setTbLength, setSetTbLength] = useState(7);
-  const [noAdRule, setNoAdRule] = useState(false);
   const [p1Points, setP1Points] = useState(0);
   const [p2Points, setP2Points] = useState(0);
-  const [p1Games, setP1Games] = useState(0);
-  const [p2Games, setP2Games] = useState(0);
   const [p1Sets, setP1Sets] = useState(0);
   const [p2Sets, setP2Sets] = useState(0);
   const [completedSets, setCompletedSets] = useState<
@@ -139,7 +135,21 @@ export default function App() {
   const [history, setHistory] = useState<MatchState[]>([]);
   const [matchDatabase, setMatchDatabase] = useState<MatchRecord[]>([]);
 
-  // --- 2. LOGIC HELPERS (Defined before useEffect to fix order errors) ---
+  // --- Tennis Specific State ---
+  const [format, setFormat] = useState("classic");
+  const [thirdSet, setThirdSet] = useState("tiebreak");
+  const [matchTbLength, setMatchTbLength] = useState(10);
+  const [setTbLength, setSetTbLength] = useState(7);
+  const [noAdRule, setNoAdRule] = useState(false);
+  const [p1Games, setP1Games] = useState(0);
+  const [p2Games, setP2Games] = useState(0);
+
+  // --- Volleyball Specific State ---
+  const [volleySetsToWin, setVolleySetsToWin] = useState(2); // Best of 3 means 2 sets to win
+  const [volleyPointsPerSet, setVolleyPointsPerSet] = useState(21);
+  const [sideChangeInterval, setSideChangeInterval] = useState(7);
+
+  // --- LOGIC HELPERS ---
   const isMatchTiebreak = p1Sets + p2Sets === 2 && thirdSet === "tiebreak";
   const isSetTiebreak =
     (format === "classic" && p1Games === 6 && p2Games === 6) ||
@@ -152,7 +162,18 @@ export default function App() {
     return s[p] || "0";
   };
 
-  // --- 3. SIDE EFFECTS ---
+  // Volleyball side change reminder logic
+  const totalVolleyPoints = p1Points + p2Points;
+  const showSideChangeReminder =
+    selectedSport === "volleyball" &&
+    totalVolleyPoints > 0 &&
+    totalVolleyPoints % sideChangeInterval === 0;
+
+  // Determine current background based on sport
+  const currentBackground =
+    selectedSport === "volleyball" ? beachBackground : courtBackground;
+
+  // --- SIDE EFFECTS ---
   useEffect(() => {
     const loadDatabase = async () => {
       try {
@@ -169,10 +190,21 @@ export default function App() {
     if (matchId) {
       const matchRef = ref(db, "live_matches/" + matchId);
       set(matchRef, {
+        sport: selectedSport,
         p1Name: p1Name || "Player 1",
         p2Name: p2Name || "Player 2",
-        p1Points: isTiebreak ? p1Points : getTennisScore(p1Points),
-        p2Points: isTiebreak ? p2Points : getTennisScore(p2Points),
+        p1Points:
+          selectedSport === "tennis"
+            ? isTiebreak
+              ? p1Points
+              : getTennisScore(p1Points)
+            : p1Points,
+        p2Points:
+          selectedSport === "tennis"
+            ? isTiebreak
+              ? p2Points
+              : getTennisScore(p2Points)
+            : p2Points,
         p1Games,
         p2Games,
         p1Sets,
@@ -194,9 +226,10 @@ export default function App() {
     p1Name,
     p2Name,
     matchId,
+    selectedSport,
   ]);
 
-  // --- 4. ENGINE FUNCTIONS ---
+  // --- ENGINE FUNCTIONS ---
   const saveDatabase = async (newDatabase: MatchRecord[]) => {
     try {
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(newDatabase));
@@ -218,7 +251,7 @@ export default function App() {
     }
   };
 
-  const handleScore = (scorer: 1 | 2) => {
+  const handleTennisScore = (scorer: 1 | 2) => {
     setHistory([
       ...history,
       {
@@ -233,9 +266,9 @@ export default function App() {
     ]);
     let p1 = p1Points;
     let p2 = p2Points;
-    if (scorer === 1) p1++;
-    else p2++;
+    scorer === 1 ? p1++ : p2++;
     let gameWonBy = 0;
+
     if (isTiebreak) {
       if (p1 >= targetTiebreakPoints && p1 - p2 >= 2) gameWonBy = 1;
       else if (p2 >= targetTiebreakPoints && p2 - p1 >= 2) gameWonBy = 2;
@@ -249,14 +282,15 @@ export default function App() {
         p2 = 3;
       }
     }
+
     if (gameWonBy > 0) {
       setP1Points(0);
       setP2Points(0);
       let nP1G = p1Games;
       let nP2G = p2Games;
-      if (gameWonBy === 1) nP1G++;
-      else nP2G++;
+      gameWonBy === 1 ? nP1G++ : nP2G++;
       let setWonBy = 0;
+
       if (isMatchTiebreak || isSetTiebreak) setWonBy = gameWonBy;
       else if (format === "classic") {
         if (nP1G >= 6 && nP1G - nP2G >= 2) setWonBy = 1;
@@ -265,34 +299,18 @@ export default function App() {
         if (nP1G === 4) setWonBy = 1;
         else if (nP2G === 4) setWonBy = 2;
       }
+
       if (setWonBy > 0) {
         if (
           (setWonBy === 1 && p1Sets + 1 === 2) ||
           (setWonBy === 2 && p2Sets + 1 === 2)
         ) {
-          const newRecord: MatchRecord = {
-            id: Date.now().toString(),
-            date: new Date().toLocaleString(),
-            p1Name: p1Name || "P1",
-            p2Name: p2Name || "P2",
-            winner: setWonBy as 1 | 2,
-            format: format === "classic" ? "Classic" : "Fast4",
-            thirdSetRule:
-              thirdSet === "full" ? "Full Set" : `TB to ${matchTbLength}`,
-            score: [...completedSets, { p1: nP1G, p2: nP2G }],
-          };
-          const updatedDB = [newRecord, ...matchDatabase];
-          setMatchDatabase(updatedDB);
-          saveDatabase(updatedDB);
-          setCompletedSets([...completedSets, { p1: nP1G, p2: nP2G }]);
-          setMatchWinner(setWonBy as 1 | 2);
-          setCurrentScreen("victory");
+          recordMatchResult(setWonBy as 1 | 2, nP1G, nP2G);
         } else {
           setCompletedSets([...completedSets, { p1: nP1G, p2: nP2G }]);
           setP1Games(0);
           setP2Games(0);
-          if (setWonBy === 1) setP1Sets(p1Sets + 1);
-          else setP2Sets(p2Sets + 1);
+          setWonBy === 1 ? setP1Sets(p1Sets + 1) : setP2Sets(p2Sets + 1);
         }
       } else {
         setP1Games(nP1G);
@@ -302,6 +320,90 @@ export default function App() {
       setP1Points(p1);
       setP2Points(p2);
     }
+  };
+
+  const handleVolleyScore = (scorer: 1 | 2) => {
+    setHistory([
+      ...history,
+      {
+        p1Points,
+        p2Points,
+        p1Games: 0,
+        p2Games: 0,
+        p1Sets,
+        p2Sets,
+        completedSets: [...completedSets],
+      },
+    ]);
+    let p1 = p1Points;
+    let p2 = p2Points;
+    scorer === 1 ? p1++ : p2++;
+
+    let currentSetTarget = volleyPointsPerSet;
+    const isDecidingSet =
+      p1Sets + p2Sets === volleySetsToWin * 2 - 2 && volleySetsToWin > 1;
+
+    // In deciding sets, standard rules usually cap at 15
+    if (isDecidingSet && currentSetTarget > 15) {
+      currentSetTarget = 15;
+    }
+
+    if (p1 >= currentSetTarget && p1 - p2 >= 2) {
+      if (p1Sets + 1 === volleySetsToWin) recordMatchResult(1, p1, p2);
+      else {
+        setCompletedSets([...completedSets, { p1, p2 }]);
+        setP1Points(0);
+        setP2Points(0);
+        setP1Sets(p1Sets + 1);
+      }
+    } else if (p2 >= currentSetTarget && p2 - p1 >= 2) {
+      if (p2Sets + 1 === volleySetsToWin) recordMatchResult(2, p1, p2);
+      else {
+        setCompletedSets([...completedSets, { p1, p2 }]);
+        setP1Points(0);
+        setP2Points(0);
+        setP2Sets(p2Sets + 1);
+      }
+    } else {
+      setP1Points(p1);
+      setP2Points(p2);
+    }
+  };
+
+  const recordMatchResult = (
+    winner: 1 | 2,
+    finalSetP1: number,
+    finalSetP2: number,
+  ) => {
+    const finalScoreArray = [
+      ...completedSets,
+      { p1: finalSetP1, p2: finalSetP2 },
+    ];
+    const newRecord: MatchRecord = {
+      id: Date.now().toString(),
+      date: new Date().toLocaleString(),
+      p1Name: p1Name || "Player 1",
+      p2Name: p2Name || "Player 2",
+      winner,
+      sport: selectedSport === "tennis" ? "Tennis" : "Volleyball",
+      format:
+        selectedSport === "tennis"
+          ? format
+          : `Best of ${volleySetsToWin === 1 ? 1 : volleySetsToWin === 2 ? 3 : 5}`,
+      thirdSetRule:
+        selectedSport === "tennis"
+          ? thirdSet === "full"
+            ? "Full Set"
+            : `TB to ${matchTbLength}`
+          : `Target: ${volleyPointsPerSet}`,
+      score: finalScoreArray,
+    };
+    const updatedDB = [newRecord, ...matchDatabase];
+    setMatchDatabase(updatedDB);
+    saveDatabase(updatedDB);
+    setCompletedSets(finalScoreArray);
+    setMatchWinner(winner);
+    setCurrentScreen("victory");
   };
 
   const handleUndo = () => {
@@ -333,7 +435,51 @@ export default function App() {
     setMatchId(null);
   };
 
-  // --- 5. SCREENS ---
+  // --- SCREENS ---
+  if (currentScreen === "sportSelect") {
+    return (
+      <ImageBackground
+        source={currentBackground}
+        style={styles.container}
+        blurRadius={15}
+      >
+        <View style={styles.overlayDark}>
+          <Text style={styles.title}>Select Sport</Text>
+          <View style={styles.ballOptionContainer}>
+            <SportDial
+              title="Tennis"
+              isSelected={selectedSport === "tennis"}
+              icon={tennisBallGraphic}
+              onPress={() => setSelectedSport("tennis")}
+            />
+            <SportDial
+              title="Volley"
+              isSelected={selectedSport === "volleyball"}
+              icon={volleyBallGraphic}
+              onPress={() => setSelectedSport("volleyball")}
+            />
+          </View>
+          <TouchableOpacity
+            style={styles.startMatchButton}
+            onPress={() =>
+              setCurrentScreen(
+                selectedSport === "tennis" ? "setup" : "volleySetup",
+              )
+            }
+          >
+            <Text style={styles.startMatchButtonText}>Continue</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.historyButton, { marginTop: 20 }]}
+            onPress={() => setCurrentScreen("history")}
+          >
+            <Text style={styles.historyButtonText}>📚 Match Database</Text>
+          </TouchableOpacity>
+        </View>
+      </ImageBackground>
+    );
+  }
+
   if (currentScreen === "setup") {
     return (
       <ImageBackground
@@ -351,12 +497,12 @@ export default function App() {
               showsVerticalScrollIndicator={false}
             >
               <View style={styles.headerArea}>
-                <Text style={styles.mainTitleGhibli}>Tennis Points</Text>
+                <Text style={styles.mainTitle}>Tennis Points</Text>
                 <View style={styles.titleDivider} />
-                <Text style={styles.setupSubtitleGhibli}>Match Setup</Text>
+                <Text style={styles.setupSubtitle}>Match Setup</Text>
               </View>
               <View style={styles.glassCard}>
-                <Text style={styles.ghibliLabel}>Player Names</Text>
+                <Text style={styles.Label}>Player Names</Text>
                 <TextInput
                   style={styles.glassInput}
                   placeholder="Player 1"
@@ -372,92 +518,104 @@ export default function App() {
                   onChangeText={setP2Name}
                 />
               </View>
-              <Text style={styles.ghibliLabel}>Game Format</Text>
+              <Text style={styles.Label}>Game Format</Text>
               <View style={styles.ballOptionContainer}>
-                <GhibliTennisBallDial
+                <SportDial
                   title="Classic"
                   subTitle="(to 6)"
                   isSelected={format === "classic"}
+                  icon={tennisBallGraphic}
                   onPress={() => setFormat("classic")}
                 />
-                <GhibliTennisBallDial
+                <SportDial
                   title="Fast4"
                   subTitle="(to 4)"
                   isSelected={format === "fast4"}
+                  icon={tennisBallGraphic}
                   onPress={() => setFormat("fast4")}
                 />
               </View>
-              <Text style={styles.ghibliLabel}>Deuce Rule</Text>
+              <Text style={styles.Label}>Deuce Rule</Text>
               <View style={styles.ballOptionContainer}>
-                <GhibliTennisBallDial
+                <SportDial
                   title="Ad"
                   subTitle="Std"
                   isSelected={!noAdRule}
+                  icon={tennisBallGraphic}
                   onPress={() => setNoAdRule(false)}
                 />
-                <GhibliTennisBallDial
+                <SportDial
                   title="No-Ad"
                   subTitle="Sudden"
                   isSelected={noAdRule}
+                  icon={tennisBallGraphic}
                   onPress={() => setNoAdRule(true)}
                 />
               </View>
-              <Text style={styles.ghibliLabel}>Set Tiebreak Length</Text>
+              <Text style={styles.Label}>Set Tiebreak Length</Text>
               <View style={styles.ballOptionContainer}>
-                <GhibliTennisBallDial
+                <SportDial
                   title="5"
                   subTitle="Pts"
                   isSelected={setTbLength === 5}
+                  icon={tennisBallGraphic}
                   onPress={() => setSetTbLength(5)}
                 />
-                <GhibliTennisBallDial
+                <SportDial
                   title="7"
                   subTitle="Pts"
                   isSelected={setTbLength === 7}
+                  icon={tennisBallGraphic}
                   onPress={() => setSetTbLength(7)}
                 />
-                <GhibliTennisBallDial
+                <SportDial
                   title="10"
                   subTitle="Pts"
                   isSelected={setTbLength === 10}
+                  icon={tennisBallGraphic}
                   onPress={() => setSetTbLength(10)}
                 />
               </View>
-              <Text style={styles.ghibliLabel}>3rd Set Rules</Text>
+              <Text style={styles.Label}>3rd Set Rules</Text>
               <View style={styles.ballOptionContainer}>
-                <GhibliTennisBallDial
+                <SportDial
                   title="Full"
                   subTitle="Set"
                   isSelected={thirdSet === "full"}
+                  icon={tennisBallGraphic}
                   onPress={() => setThirdSet("full")}
                 />
-                <GhibliTennisBallDial
+                <SportDial
                   title="Match"
                   subTitle="Tiebreak"
                   isSelected={thirdSet === "tiebreak"}
+                  icon={tennisBallGraphic}
                   onPress={() => setThirdSet("tiebreak")}
                 />
               </View>
               {thirdSet === "tiebreak" && (
                 <>
-                  <Text style={styles.ghibliLabel}>Match Tiebreak Length</Text>
+                  <Text style={styles.Label}>Match Tiebreak Length</Text>
                   <View style={styles.ballOptionContainer}>
-                    <GhibliTennisBallDial
+                    <SportDial
                       title="5"
                       subTitle="Pts"
                       isSelected={matchTbLength === 5}
+                      icon={tennisBallGraphic}
                       onPress={() => setMatchTbLength(5)}
                     />
-                    <GhibliTennisBallDial
+                    <SportDial
                       title="7"
                       subTitle="Pts"
                       isSelected={matchTbLength === 7}
+                      icon={tennisBallGraphic}
                       onPress={() => setMatchTbLength(7)}
                     />
-                    <GhibliTennisBallDial
+                    <SportDial
                       title="10"
                       subTitle="Pts"
                       isSelected={matchTbLength === 10}
+                      icon={tennisBallGraphic}
                       onPress={() => setMatchTbLength(10)}
                     />
                   </View>
@@ -472,11 +630,179 @@ export default function App() {
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.historyButton}
-                  onPress={() => setCurrentScreen("history")}
+                  onPress={() => setCurrentScreen("sportSelect")}
                 >
-                  <Text style={styles.historyButtonText}>
-                    📚 Match Database
-                  </Text>
+                  <Text style={styles.historyButtonText}>← Back to Sports</Text>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </KeyboardAvoidingView>
+        </View>
+      </ImageBackground>
+    );
+  }
+
+  if (currentScreen === "volleySetup") {
+    return (
+      <ImageBackground
+        source={beachBackground}
+        style={styles.container}
+        blurRadius={12}
+      >
+        <View style={styles.beachOverlay}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+            style={{ flex: 1 }}
+          >
+            <ScrollView
+              contentContainerStyle={{ paddingBottom: 60, paddingTop: 60 }}
+              showsVerticalScrollIndicator={false}
+            >
+              <View style={styles.headerArea}>
+                <Text
+                  style={[
+                    styles.mainTitle,
+                    { color: "#fff", textShadowColor: "#000" },
+                  ]}
+                >
+                  Volleyball
+                </Text>
+                <View
+                  style={[styles.titleDivider, { backgroundColor: "#fff" }]}
+                />
+                <Text style={[styles.setupSubtitle, { color: "#fff" }]}>
+                  Match Setup
+                </Text>
+              </View>
+              <View style={styles.beachGlassCard}>
+                <Text
+                  style={[
+                    styles.Label,
+                    { color: "#fff", textShadowColor: "#000" },
+                  ]}
+                >
+                  Team Names
+                </Text>
+                <TextInput
+                  style={styles.beachInput}
+                  placeholder="Team 1"
+                  placeholderTextColor="rgba(255,255,255,0.7)"
+                  value={p1Name}
+                  onChangeText={setP1Name}
+                />
+                <TextInput
+                  style={styles.beachInput}
+                  placeholder="Team 2"
+                  placeholderTextColor="rgba(255,255,255,0.7)"
+                  value={p2Name}
+                  onChangeText={setP2Name}
+                />
+              </View>
+
+              <Text
+                style={[
+                  styles.Label,
+                  { color: "#fff", textShadowColor: "#000" },
+                ]}
+              >
+                Best of Sets
+              </Text>
+              <View style={styles.ballOptionContainer}>
+                <SportDial
+                  title="1"
+                  subTitle="Set"
+                  isSelected={volleySetsToWin === 1}
+                  icon={volleyBallGraphic}
+                  onPress={() => setVolleySetsToWin(1)}
+                />
+                <SportDial
+                  title="3"
+                  subTitle="Sets"
+                  isSelected={volleySetsToWin === 2}
+                  icon={volleyBallGraphic}
+                  onPress={() => setVolleySetsToWin(2)}
+                />
+                <SportDial
+                  title="5"
+                  subTitle="Sets"
+                  isSelected={volleySetsToWin === 3}
+                  icon={volleyBallGraphic}
+                  onPress={() => setVolleySetsToWin(3)}
+                />
+              </View>
+
+              <Text
+                style={[
+                  styles.Label,
+                  { color: "#fff", textShadowColor: "#000" },
+                ]}
+              >
+                Points per Set
+              </Text>
+              <View style={styles.ballOptionContainer}>
+                <SportDial
+                  title="15"
+                  isSelected={volleyPointsPerSet === 15}
+                  icon={volleyBallGraphic}
+                  onPress={() => setVolleyPointsPerSet(15)}
+                />
+                <SportDial
+                  title="21"
+                  isSelected={volleyPointsPerSet === 21}
+                  icon={volleyBallGraphic}
+                  onPress={() => setVolleyPointsPerSet(21)}
+                />
+                <SportDial
+                  title="25"
+                  isSelected={volleyPointsPerSet === 25}
+                  icon={volleyBallGraphic}
+                  onPress={() => setVolleyPointsPerSet(25)}
+                />
+              </View>
+
+              <Text
+                style={[
+                  styles.Label,
+                  { color: "#fff", textShadowColor: "#000" },
+                ]}
+              >
+                Change Sides Every
+              </Text>
+              <View style={styles.ballOptionContainer}>
+                <SportDial
+                  title="5"
+                  subTitle="Pts"
+                  isSelected={sideChangeInterval === 5}
+                  icon={volleyBallGraphic}
+                  onPress={() => setSideChangeInterval(5)}
+                />
+                <SportDial
+                  title="7"
+                  subTitle="Pts"
+                  isSelected={sideChangeInterval === 7}
+                  icon={volleyBallGraphic}
+                  onPress={() => setSideChangeInterval(7)}
+                />
+              </View>
+
+              <View style={styles.actionButtonsContainer}>
+                <TouchableOpacity
+                  style={[
+                    styles.startMatchButton,
+                    { backgroundColor: "#ffb347" },
+                  ]}
+                  onPress={() => setCurrentScreen("volleyMatch")}
+                >
+                  <Text style={styles.startMatchButtonText}>Start Match</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.historyButton,
+                    { backgroundColor: "rgba(0,0,0,0.2)" },
+                  ]}
+                  onPress={() => setCurrentScreen("sportSelect")}
+                >
+                  <Text style={styles.historyButtonText}>← Back to Sports</Text>
                 </TouchableOpacity>
               </View>
             </ScrollView>
@@ -489,25 +815,27 @@ export default function App() {
   if (currentScreen === "history") {
     return (
       <ImageBackground
-        source={courtBackground}
+        source={currentBackground}
         style={styles.container}
         blurRadius={15}
       >
         <View style={styles.overlayDark}>
           <View style={{ paddingTop: 60, paddingBottom: 20, flex: 1 }}>
-            <Text style={styles.titleGhibli}>Database</Text>
+            <Text style={styles.title}>Database</Text>
             {matchDatabase.length === 0 ? (
               <View style={styles.emptyStateContainer}>
-                <Text style={styles.ghibliLabel}>No matches recorded.</Text>
+                <Text style={styles.Label}>No matches recorded.</Text>
               </View>
             ) : (
               <ScrollView showsVerticalScrollIndicator={false}>
                 {matchDatabase.map((m) => (
                   <View key={m.id} style={styles.dbCard}>
                     <View style={styles.dbHeader}>
-                      <Text style={styles.dbDate}>{m.date}</Text>
+                      <Text style={styles.dbDate}>
+                        {m.date} - {m.sport}
+                      </Text>
                       <Text style={styles.dbFormat}>
-                        {m.format} ({m.thirdSetRule})
+                        {m.format} | {m.thirdSetRule}
                       </Text>
                     </View>
                     <View style={styles.dbPlayersRow}>
@@ -557,7 +885,7 @@ export default function App() {
             )}
             <TouchableOpacity
               style={styles.backButton}
-              onPress={() => setCurrentScreen("setup")}
+              onPress={() => setCurrentScreen("sportSelect")}
             >
               <Text style={styles.backButtonText}>← Back</Text>
             </TouchableOpacity>
@@ -569,10 +897,10 @@ export default function App() {
 
   if (currentScreen === "victory") {
     const winnerName =
-      matchWinner === 1 ? p1Name || "Player 1" : p2Name || "Player 2";
+      matchWinner === 1 ? p1Name || "Team 1" : p2Name || "Team 2";
     return (
       <ImageBackground
-        source={courtBackground}
+        source={currentBackground}
         style={styles.container}
         blurRadius={5}
       >
@@ -596,7 +924,7 @@ export default function App() {
           <TouchableOpacity
             style={styles.startMatchButton}
             onPress={() => {
-              setCurrentScreen("setup");
+              setCurrentScreen("sportSelect");
               resetFullMatch();
             }}
           >
@@ -607,115 +935,252 @@ export default function App() {
     );
   }
 
-  return (
-    <ImageBackground
-      source={courtBackground}
-      style={styles.container}
-      resizeMode="cover"
-    >
-      <View style={styles.overlayLight}>
-        <Text style={styles.titleMatch}>Court View</Text>
-        {matchId && (
-          <View style={styles.liveIndicator}>
-            <Text style={styles.liveIndicatorText}>
-              ● LIVE BROADCAST: {matchId}
-            </Text>
-          </View>
-        )}
-        <View style={styles.ruleBanner}>
-          <Text style={styles.ruleInfo}>
-            {format === "classic" ? "Classic" : "Fast4"} |{" "}
-            {noAdRule ? "No-Ad" : "Ad"}
-            {isMatchTiebreak
-              ? `\n🎾 MATCH TIEBREAK TO ${matchTbLength} 🎾`
-              : ""}
-          </Text>
-        </View>
-        <View style={styles.tvScoreboardGlass}>
-          <View style={styles.scoreRowHeader}>
-            <Text style={[styles.scoreCell, styles.nameCell]}></Text>
-            {completedSets.map((_, i) => (
-              <Text key={i} style={styles.scoreCell}>
-                S{i + 1}
+  if (currentScreen === "volleyMatch") {
+    return (
+      <ImageBackground
+        source={beachBackground}
+        style={styles.container}
+        resizeMode="cover"
+      >
+        <View style={styles.beachOverlay}>
+          <Text style={styles.titleMatch}>Beach Court</Text>
+          {matchId && (
+            <View style={styles.liveIndicator}>
+              <Text style={styles.liveIndicatorText}>
+                ● LIVE BROADCAST: {matchId}
               </Text>
-            ))}
-            <Text style={[styles.scoreCell, styles.activeHeaderCell]}>G</Text>
-            <Text style={[styles.scoreCell, styles.pointHeaderCell]}>P</Text>
-          </View>
-          <View style={styles.scoreRow}>
-            <Text style={[styles.scoreCell, styles.nameCell]} numberOfLines={1}>
-              {p1Name || "P1"}
-            </Text>
-            {completedSets.map((s, i) => (
-              <Text key={i} style={styles.scoreCell}>
-                {s.p1}
-              </Text>
-            ))}
-            <Text style={[styles.scoreCell, styles.activeCell]}>{p1Games}</Text>
-            <Text style={[styles.scoreCell, styles.pointCell]}>
-              {isTiebreak ? p1Points : getTennisScore(p1Points)}
-            </Text>
-          </View>
-          <View style={styles.scoreRow}>
-            <Text style={[styles.scoreCell, styles.nameCell]} numberOfLines={1}>
-              {p2Name || "P2"}
-            </Text>
-            {completedSets.map((s, i) => (
-              <Text key={i} style={styles.scoreCell}>
-                {s.p2}
-              </Text>
-            ))}
-            <Text style={[styles.scoreCell, styles.activeCell]}>{p2Games}</Text>
-            <Text style={[styles.scoreCell, styles.pointCell]}>
-              {isTiebreak ? p2Points : getTennisScore(p2Points)}
-            </Text>
-          </View>
-        </View>
-        <View style={styles.actionArea}>
-          <View style={styles.playerCardGlass}>
-            <Text style={styles.actionName}>{p1Name || "P1"}</Text>
-            <TouchableOpacity
-              style={styles.scoreButton}
-              onPress={() => handleScore(1)}
-            >
-              <Text style={styles.scoreButtonText}>+ Point</Text>
-            </TouchableOpacity>
-          </View>
-          <View style={styles.playerCardGlass}>
-            <Text style={styles.actionName}>{p2Name || "P2"}</Text>
-            <TouchableOpacity
-              style={styles.scoreButton}
-              onPress={() => handleScore(2)}
-            >
-              <Text style={styles.scoreButtonText}>+ Point</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-        <View style={styles.bottomActionsBox}>
-          <TouchableOpacity
-            style={styles.liveShareBtn}
-            onPress={handleLiveShare}
-          >
-            <Text style={styles.liveShareBtnText}>📡 Share Live Score</Text>
-          </TouchableOpacity>
-          {history.length > 0 && (
-            <TouchableOpacity style={styles.undoButton} onPress={handleUndo}>
-              <Text style={styles.undoButtonText}>↩ Undo</Text>
-            </TouchableOpacity>
+            </View>
           )}
-          <TouchableOpacity
-            style={styles.cancelButton}
-            onPress={() => {
-              setCurrentScreen("setup");
-              resetFullMatch();
-            }}
-          >
-            <Text style={styles.cancelButtonText}>Cancel Match</Text>
-          </TouchableOpacity>
+
+          {showSideChangeReminder && (
+            <View style={styles.sideChangeAlert}>
+              <Text style={styles.sideChangeText}>🔄 CHANGE SIDES! 🔄</Text>
+            </View>
+          )}
+
+          <View style={styles.beachGlassCard}>
+            <View style={styles.scoreRowHeader}>
+              <Text style={[styles.scoreCell, styles.nameCell]}></Text>
+              {completedSets.map((_, i) => (
+                <Text key={i} style={styles.scoreCell}>
+                  S{i + 1}
+                </Text>
+              ))}
+              <Text style={[styles.scoreCell, styles.activeHeaderCell]}>S</Text>
+              <Text style={[styles.scoreCell, styles.pointHeaderCell]}>P</Text>
+            </View>
+            <View style={styles.scoreRow}>
+              <Text
+                style={[styles.scoreCell, styles.nameCell]}
+                numberOfLines={1}
+              >
+                {p1Name || "Team 1"}
+              </Text>
+              {completedSets.map((s, i) => (
+                <Text key={i} style={styles.scoreCell}>
+                  {s.p1}
+                </Text>
+              ))}
+              <Text style={[styles.scoreCell, styles.activeCell]}>
+                {p1Sets}
+              </Text>
+              <Text style={[styles.scoreCell, styles.pointCell]}>
+                {p1Points}
+              </Text>
+            </View>
+            <View style={styles.scoreRow}>
+              <Text
+                style={[styles.scoreCell, styles.nameCell]}
+                numberOfLines={1}
+              >
+                {p2Name || "Team 2"}
+              </Text>
+              {completedSets.map((s, i) => (
+                <Text key={i} style={styles.scoreCell}>
+                  {s.p2}
+                </Text>
+              ))}
+              <Text style={[styles.scoreCell, styles.activeCell]}>
+                {p2Sets}
+              </Text>
+              <Text style={[styles.scoreCell, styles.pointCell]}>
+                {p2Points}
+              </Text>
+            </View>
+          </View>
+          <View style={styles.actionArea}>
+            <View style={styles.playerCardGlass}>
+              <Text style={styles.actionName}>{p1Name || "Team 1"}</Text>
+              <TouchableOpacity
+                style={[styles.scoreButton, { backgroundColor: "#ffb347" }]}
+                onPress={() => handleVolleyScore(1)}
+              >
+                <Text style={styles.scoreButtonText}>+ Point</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.playerCardGlass}>
+              <Text style={styles.actionName}>{p2Name || "Team 2"}</Text>
+              <TouchableOpacity
+                style={[styles.scoreButton, { backgroundColor: "#ffb347" }]}
+                onPress={() => handleVolleyScore(2)}
+              >
+                <Text style={styles.scoreButtonText}>+ Point</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+          <View style={styles.bottomActionsBox}>
+            <TouchableOpacity
+              style={styles.liveShareBtn}
+              onPress={handleLiveShare}
+            >
+              <Text style={styles.liveShareBtnText}>📡 Share Live Score</Text>
+            </TouchableOpacity>
+            {history.length > 0 && (
+              <TouchableOpacity style={styles.undoButton} onPress={handleUndo}>
+                <Text style={styles.undoButtonText}>↩ Undo</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity
+              style={styles.cancelButton}
+              onPress={() => {
+                setCurrentScreen("sportSelect");
+                resetFullMatch();
+              }}
+            >
+              <Text style={[styles.cancelButtonText, { color: "#fff" }]}>
+                Cancel Match
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
-    </ImageBackground>
-  );
+      </ImageBackground>
+    );
+  }
+
+  if (currentScreen === "match") {
+    return (
+      <ImageBackground
+        source={courtBackground}
+        style={styles.container}
+        resizeMode="cover"
+      >
+        <View style={styles.overlayLight}>
+          <Text style={styles.titleMatch}>Court View</Text>
+          {matchId && (
+            <View style={styles.liveIndicator}>
+              <Text style={styles.liveIndicatorText}>
+                ● LIVE BROADCAST: {matchId}
+              </Text>
+            </View>
+          )}
+          <View style={styles.ruleBanner}>
+            <Text style={styles.ruleInfo}>
+              {format === "classic" ? "Classic" : "Fast4"} |{" "}
+              {noAdRule ? "No-Ad" : "Ad"}
+              {isMatchTiebreak
+                ? `\n🎾 MATCH TIEBREAK TO ${matchTbLength} 🎾`
+                : ""}
+            </Text>
+          </View>
+          <View style={styles.tvScoreboardGlass}>
+            <View style={styles.scoreRowHeader}>
+              <Text style={[styles.scoreCell, styles.nameCell]}></Text>
+              {completedSets.map((_, i) => (
+                <Text key={i} style={styles.scoreCell}>
+                  S{i + 1}
+                </Text>
+              ))}
+              <Text style={[styles.scoreCell, styles.activeHeaderCell]}>G</Text>
+              <Text style={[styles.scoreCell, styles.pointHeaderCell]}>P</Text>
+            </View>
+            <View style={styles.scoreRow}>
+              <Text
+                style={[styles.scoreCell, styles.nameCell]}
+                numberOfLines={1}
+              >
+                {p1Name || "P1"}
+              </Text>
+              {completedSets.map((s, i) => (
+                <Text key={i} style={styles.scoreCell}>
+                  {s.p1}
+                </Text>
+              ))}
+              <Text style={[styles.scoreCell, styles.activeCell]}>
+                {p1Games}
+              </Text>
+              <Text style={[styles.scoreCell, styles.pointCell]}>
+                {isTiebreak ? p1Points : getTennisScore(p1Points)}
+              </Text>
+            </View>
+            <View style={styles.scoreRow}>
+              <Text
+                style={[styles.scoreCell, styles.nameCell]}
+                numberOfLines={1}
+              >
+                {p2Name || "P2"}
+              </Text>
+              {completedSets.map((s, i) => (
+                <Text key={i} style={styles.scoreCell}>
+                  {s.p2}
+                </Text>
+              ))}
+              <Text style={[styles.scoreCell, styles.activeCell]}>
+                {p2Games}
+              </Text>
+              <Text style={[styles.scoreCell, styles.pointCell]}>
+                {isTiebreak ? p2Points : getTennisScore(p2Points)}
+              </Text>
+            </View>
+          </View>
+          <View style={styles.actionArea}>
+            <View style={styles.playerCardGlass}>
+              <Text style={styles.actionName}>{p1Name || "P1"}</Text>
+              <TouchableOpacity
+                style={styles.scoreButton}
+                onPress={() => handleTennisScore(1)}
+              >
+                <Text style={styles.scoreButtonText}>+ Point</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.playerCardGlass}>
+              <Text style={styles.actionName}>{p2Name || "P2"}</Text>
+              <TouchableOpacity
+                style={styles.scoreButton}
+                onPress={() => handleTennisScore(2)}
+              >
+                <Text style={styles.scoreButtonText}>+ Point</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+          <View style={styles.bottomActionsBox}>
+            <TouchableOpacity
+              style={styles.liveShareBtn}
+              onPress={handleLiveShare}
+            >
+              <Text style={styles.liveShareBtnText}>📡 Share Live Score</Text>
+            </TouchableOpacity>
+            {history.length > 0 && (
+              <TouchableOpacity style={styles.undoButton} onPress={handleUndo}>
+                <Text style={styles.undoButtonText}>↩ Undo</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity
+              style={styles.cancelButton}
+              onPress={() => {
+                setCurrentScreen("sportSelect");
+                resetFullMatch();
+              }}
+            >
+              <Text style={styles.cancelButtonText}>Cancel Match</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </ImageBackground>
+    );
+  }
+
+  // Pure safety fallback to prevent unhandled states
+  return <View style={styles.container} />;
 }
 
 const styles = StyleSheet.create({
@@ -724,6 +1189,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0.4)",
     paddingHorizontal: 20,
+    justifyContent: "center",
   },
   overlayLight: {
     flex: 1,
@@ -731,8 +1197,52 @@ const styles = StyleSheet.create({
     paddingTop: 60,
     paddingHorizontal: 20,
   },
+
+  beachOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(79, 164, 184, 0.75)",
+    paddingTop: 60,
+    paddingHorizontal: 20,
+  },
+  beachGlassCard: {
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
+    padding: 15,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.3)",
+    marginBottom: 20,
+  },
+  beachInput: {
+    backgroundColor: "rgba(255, 255, 255, 0.25)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.4)",
+    padding: 14,
+    borderRadius: 14,
+    fontSize: 16,
+    color: "#fff",
+    marginBottom: 10,
+    fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
+  },
+
+  sideChangeAlert: {
+    backgroundColor: "#FFB347",
+    padding: 12,
+    borderRadius: 15,
+    marginBottom: 15,
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: "#fff",
+  },
+  sideChangeText: {
+    color: "#fff",
+    fontWeight: "900",
+    fontSize: 18,
+    textShadowColor: "rgba(0,0,0,0.5)",
+    textShadowRadius: 2,
+  },
+
   headerArea: { marginBottom: 30, alignItems: "center" },
-  mainTitleGhibli: {
+  mainTitle: {
     fontSize: 46,
     fontWeight: "600",
     fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
@@ -740,6 +1250,7 @@ const styles = StyleSheet.create({
     textShadowColor: "rgba(0,0,0,0.4)",
     textShadowRadius: 10,
     letterSpacing: 2,
+    textAlign: "center",
   },
   titleDivider: {
     height: 1,
@@ -747,7 +1258,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(253, 246, 227, 0.4)",
     marginVertical: 8,
   },
-  setupSubtitleGhibli: {
+  setupSubtitle: {
     fontSize: 18,
     fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
     color: "#FDF6E3",
@@ -755,7 +1266,7 @@ const styles = StyleSheet.create({
     letterSpacing: 4,
     textTransform: "uppercase",
   },
-  titleGhibli: {
+  title: {
     fontSize: 38,
     fontWeight: "600",
     fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
@@ -776,7 +1287,7 @@ const styles = StyleSheet.create({
     textShadowColor: "rgba(0,0,0,0.5)",
     textShadowRadius: 5,
   },
-  ghibliLabel: {
+  Label: {
     fontSize: 19,
     fontWeight: "600",
     fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
@@ -880,6 +1391,142 @@ const styles = StyleSheet.create({
     color: "#FDF6E3",
     fontSize: 16,
     fontWeight: "600",
+    fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
+  },
+  tvScoreboardGlass: {
+    backgroundColor: "rgba(20, 30, 20, 0.82)",
+    borderRadius: 24,
+    padding: 18,
+    marginBottom: 30,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
+  },
+  scoreRowHeader: {
+    flexDirection: "row",
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.15)",
+    paddingVertical: 8,
+  },
+  scoreRow: {
+    flexDirection: "row",
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.08)",
+    paddingVertical: 12,
+    alignItems: "center",
+  },
+  scoreCell: {
+    flex: 1,
+    textAlign: "center",
+    fontSize: 13,
+    color: "#fff",
+    fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
+  },
+  nameCell: { flex: 2.5, textAlign: "left", fontWeight: "600", fontSize: 15 },
+  activeHeaderCell: { color: "#DFFF00" },
+  pointHeaderCell: { color: "#FFB347" },
+  activeCell: {
+    color: "#DFFF00",
+    fontWeight: "600",
+    fontSize: 18,
+    fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
+  },
+  pointCell: {
+    color: "#FFB347",
+    fontWeight: "800",
+    fontSize: 42,
+    fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
+  },
+  actionArea: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 15,
+  },
+  playerCardGlass: {
+    flex: 1,
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
+    borderRadius: 24,
+    padding: 16,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
+  },
+  actionName: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#FDF6E3",
+    marginBottom: 15,
+    fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
+  },
+  scoreButton: {
+    backgroundColor: "rgba(255, 179, 71, 0.95)",
+    paddingVertical: 18,
+    borderRadius: 18,
+    width: "100%",
+    shadowColor: "#000",
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+  },
+  scoreButtonText: {
+    color: "#1a1a1a",
+    fontSize: 16,
+    fontWeight: "600",
+    textAlign: "center",
+    fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
+  },
+  bottomActionsBox: {
+    marginTop: "auto",
+    marginBottom: 40,
+    alignItems: "center",
+    gap: 18,
+  },
+  liveShareBtn: {
+    backgroundColor: "#FDF6E3",
+    paddingVertical: 14,
+    paddingHorizontal: 35,
+    borderRadius: 30,
+    borderWidth: 1,
+    borderColor: "#7a9e7e",
+  },
+  liveShareBtnText: { color: "#7a9e7e", fontWeight: "bold", fontSize: 16 },
+  undoButton: {
+    backgroundColor: "rgba(255, 255, 255, 0.22)",
+    paddingVertical: 12,
+    paddingHorizontal: 28,
+    borderRadius: 28,
+  },
+  undoButtonText: {
+    color: "#FDF6E3",
+    fontSize: 15,
+    fontWeight: "600",
+    fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
+  },
+  cancelButton: { padding: 10 },
+  cancelButtonText: {
+    color: "#FF6B6B",
+    fontSize: 15,
+    fontWeight: "600",
+    fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
+  },
+  liveIndicator: {
+    backgroundColor: "rgba(255,0,0,0.7)",
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 10,
+    marginBottom: 10,
+    alignSelf: "center",
+  },
+  liveIndicatorText: { color: "#fff", fontSize: 11, fontWeight: "bold" },
+  ruleBanner: {
+    backgroundColor: "rgba(255, 255, 255, 0.88)",
+    padding: 12,
+    borderRadius: 16,
+    marginVertical: 12,
+  },
+  ruleInfo: {
+    textAlign: "center",
+    fontSize: 14,
+    fontWeight: "bold",
+    color: "#2b3a2e",
     fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
   },
   victoryTitle: {
@@ -997,139 +1644,4 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: 100,
   },
-  ruleBanner: {
-    backgroundColor: "rgba(255, 255, 255, 0.88)",
-    padding: 12,
-    borderRadius: 16,
-    marginVertical: 12,
-  },
-  ruleInfo: {
-    textAlign: "center",
-    fontSize: 14,
-    fontWeight: "bold",
-    color: "#2b3a2e",
-    fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
-  },
-  tvScoreboardGlass: {
-    backgroundColor: "rgba(20, 30, 20, 0.82)",
-    borderRadius: 24,
-    padding: 18,
-    marginBottom: 30,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.1)",
-  },
-  scoreRowHeader: {
-    flexDirection: "row",
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(255,255,255,0.15)",
-    paddingVertical: 8,
-  },
-  scoreRow: {
-    flexDirection: "row",
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(255,255,255,0.08)",
-    paddingVertical: 12,
-  },
-  scoreCell: {
-    flex: 1,
-    textAlign: "center",
-    fontSize: 13,
-    color: "#fff",
-    fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
-  },
-  nameCell: { flex: 2.5, textAlign: "left", fontWeight: "600", fontSize: 15 },
-  activeHeaderCell: { color: "#DFFF00" },
-  pointHeaderCell: { color: "#FFB347" },
-  activeCell: {
-    color: "#DFFF00",
-    fontWeight: "600",
-    fontSize: 18,
-    fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
-  },
-  pointCell: {
-    color: "#FFB347",
-    fontWeight: "600",
-    fontSize: 18,
-    fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
-  },
-  actionArea: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    gap: 15,
-  },
-  playerCardGlass: {
-    flex: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.15)",
-    borderRadius: 24,
-    padding: 16,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.1)",
-  },
-  actionName: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#FDF6E3",
-    marginBottom: 15,
-    fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
-  },
-  scoreButton: {
-    backgroundColor: "rgba(255, 179, 71, 0.95)",
-    paddingVertical: 18,
-    borderRadius: 18,
-    width: "100%",
-    shadowColor: "#000",
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-  },
-  scoreButtonText: {
-    color: "#1a1a1a",
-    fontSize: 16,
-    fontWeight: "600",
-    textAlign: "center",
-    fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
-  },
-  bottomActionsBox: {
-    marginTop: "auto",
-    marginBottom: 40,
-    alignItems: "center",
-    gap: 18,
-  },
-  undoButton: {
-    backgroundColor: "rgba(255, 255, 255, 0.22)",
-    paddingVertical: 12,
-    paddingHorizontal: 28,
-    borderRadius: 28,
-  },
-  undoButtonText: {
-    color: "#FDF6E3",
-    fontSize: 15,
-    fontWeight: "600",
-    fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
-  },
-  cancelButton: { padding: 10 },
-  cancelButtonText: {
-    color: "#FF6B6B",
-    fontSize: 15,
-    fontWeight: "600",
-    fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
-  },
-  liveIndicator: {
-    backgroundColor: "rgba(255,0,0,0.7)",
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 10,
-    marginBottom: 10,
-    alignSelf: "center",
-  },
-  liveIndicatorText: { color: "#fff", fontSize: 11, fontWeight: "bold" },
-  liveShareBtn: {
-    backgroundColor: "#FDF6E3",
-    paddingVertical: 14,
-    paddingHorizontal: 35,
-    borderRadius: 30,
-    borderWidth: 1,
-    borderColor: "#7a9e7e",
-  },
-  liveShareBtnText: { color: "#7a9e7e", fontWeight: "bold", fontSize: 16 },
 });
