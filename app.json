@@ -1,31 +1,41 @@
 {
   "expo": {
     "name": "MatchPoint",
-    "slug": "tennis-points",
+    "slug": "matchpoint-tennis-beach-volley",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "userInterfaceStyle": "light",
+    "scheme": "matchpoint",
+    "userInterfaceStyle": "automatic",
     "splash": {
-      "image": "./assets/images/icon.png",
+      "image": "./assets/images/splash.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.mikkojolin.matchpoint"
+    },
     "android": {
-      "package": "com.olinm.matchpoint",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/icon.png",
-        "backgroundColor": "#2b3a2e"
-      }
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "package": "com.mikkojolin.matchpoint"
     },
     "web": {
-      "favicon": "./assets/images/icon.png"
+      "bundler": "metro",
+      "output": "static",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": ["expo-router"],
+    "experiments": {
+      "typedRoutes": true
     },
     "extra": {
       "eas": {
-        "projectId": "f7244711-d82d-4e9b-876f-0987542210b5"
+        "projectId": "PLACEHOLDER_PROJECT_ID" // This will be updated automatically by EAS
       }
-    },
-    "owner": "mikkojolin"
+    }
   }
 }

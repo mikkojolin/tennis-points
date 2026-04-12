@@ -14,7 +14,7 @@ import {
   View,
 } from "react-native";
 
-// 🔥 FIREBASE INITIALIZATION
+// FIREBASE INITIALIZATION
 import { initializeApp } from "firebase/app";
 import { getDatabase, ref, set } from "firebase/database";
 
@@ -32,13 +32,13 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-// --- Assets ---
+// Assets
 const tennisBallGraphic = require("../../assets/images/tennis_ball_graphic.png");
 const courtBackground = require("../../assets/images/court_background.png");
 const volleyBallGraphic = require("../../assets/images/volleyball.png");
 const beachBackground = require("../../assets/images/beach.png");
 
-// --- Type Definitions ---
+// Type Definitions
 type MatchState = {
   p1Points: number;
   p2Points: number;
@@ -59,11 +59,12 @@ type MatchRecord = {
   format: string;
   thirdSetRule: string;
   score: { p1: number; p2: number }[];
+  duration?: number;
 };
 
 const STORAGE_KEY = "@sports_match_database";
 
-// --- UI COMPONENTS ---
+// UI COMPONENTS
 const SportDial = ({ title, subTitle, isSelected, onPress, icon }: any) => (
   <TouchableOpacity
     style={[
@@ -120,7 +121,7 @@ export default function App() {
     "tennis",
   );
 
-  // --- Shared Setup State ---
+  // Shared Setup State
   const [p1Name, setP1Name] = useState("");
   const [p2Name, setP2Name] = useState("");
   const [p1Points, setP1Points] = useState(0);
@@ -135,7 +136,11 @@ export default function App() {
   const [history, setHistory] = useState<MatchState[]>([]);
   const [matchDatabase, setMatchDatabase] = useState<MatchRecord[]>([]);
 
-  // --- Tennis Specific State ---
+  // Timer State
+  const [matchStartTime, setMatchStartTime] = useState<number | null>(null);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+
+  // Tennis Specific State
   const [format, setFormat] = useState("classic");
   const [thirdSet, setThirdSet] = useState("tiebreak");
   const [matchTbLength, setMatchTbLength] = useState(10);
@@ -144,12 +149,12 @@ export default function App() {
   const [p1Games, setP1Games] = useState(0);
   const [p2Games, setP2Games] = useState(0);
 
-  // --- Volleyball Specific State ---
-  const [volleySetsToWin, setVolleySetsToWin] = useState(2); // Best of 3 means 2 sets to win
+  // Beach Volley Specific State
+  const [volleySetsToWin, setVolleySetsToWin] = useState(2);
   const [volleyPointsPerSet, setVolleyPointsPerSet] = useState(21);
   const [sideChangeInterval, setSideChangeInterval] = useState(7);
 
-  // --- LOGIC HELPERS ---
+  // LOGIC HELPERS
   const isMatchTiebreak = p1Sets + p2Sets === 2 && thirdSet === "tiebreak";
   const isSetTiebreak =
     (format === "classic" && p1Games === 6 && p2Games === 6) ||
@@ -162,18 +167,25 @@ export default function App() {
     return s[p] || "0";
   };
 
-  // Volleyball side change reminder logic
   const totalVolleyPoints = p1Points + p2Points;
   const showSideChangeReminder =
     selectedSport === "volleyball" &&
     totalVolleyPoints > 0 &&
     totalVolleyPoints % sideChangeInterval === 0;
 
-  // Determine current background based on sport
   const currentBackground =
     selectedSport === "volleyball" ? beachBackground : courtBackground;
 
-  // --- SIDE EFFECTS ---
+  const formatTime = (totalSeconds: number) => {
+    const m = Math.floor(totalSeconds / 60)
+      .toString()
+      .padStart(2, "0");
+    const s = (totalSeconds % 60).toString().padStart(2, "0");
+    const h = Math.floor(totalSeconds / 3600);
+    return h > 0 ? `${h}:${m}:${s}` : `${m}:${s}`;
+  };
+
+  // SIDE EFFECTS
   useEffect(() => {
     const loadDatabase = async () => {
       try {
@@ -186,11 +198,25 @@ export default function App() {
     loadDatabase();
   }, []);
 
+  // Timer Effect
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (
+      (currentScreen === "match" || currentScreen === "volleyMatch") &&
+      matchStartTime
+    ) {
+      interval = setInterval(() => {
+        setElapsedSeconds(Math.floor((Date.now() - matchStartTime) / 1000));
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [currentScreen, matchStartTime]);
+
   useEffect(() => {
     if (matchId) {
       const matchRef = ref(db, "live_matches/" + matchId);
       set(matchRef, {
-        sport: selectedSport,
+        sport: selectedSport === "tennis" ? "Tennis" : "Beach Volley",
         p1Name: p1Name || "Player 1",
         p2Name: p2Name || "Player 2",
         p1Points:
@@ -229,7 +255,7 @@ export default function App() {
     selectedSport,
   ]);
 
-  // --- ENGINE FUNCTIONS ---
+  // ENGINE FUNCTIONS
   const saveDatabase = async (newDatabase: MatchRecord[]) => {
     try {
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(newDatabase));
@@ -343,7 +369,6 @@ export default function App() {
     const isDecidingSet =
       p1Sets + p2Sets === volleySetsToWin * 2 - 2 && volleySetsToWin > 1;
 
-    // In deciding sets, standard rules usually cap at 15
     if (isDecidingSet && currentSetTarget > 15) {
       currentSetTarget = 15;
     }
@@ -375,17 +400,21 @@ export default function App() {
     finalSetP1: number,
     finalSetP2: number,
   ) => {
+    const finalDuration = matchStartTime
+      ? Math.floor((Date.now() - matchStartTime) / 1000)
+      : elapsedSeconds;
     const finalScoreArray = [
       ...completedSets,
       { p1: finalSetP1, p2: finalSetP2 },
     ];
+
     const newRecord: MatchRecord = {
       id: Date.now().toString(),
       date: new Date().toLocaleString(),
       p1Name: p1Name || "Player 1",
       p2Name: p2Name || "Player 2",
       winner,
-      sport: selectedSport === "tennis" ? "Tennis" : "Volleyball",
+      sport: selectedSport === "tennis" ? "Tennis" : "Beach Volley",
       format:
         selectedSport === "tennis"
           ? format
@@ -397,7 +426,9 @@ export default function App() {
             : `TB to ${matchTbLength}`
           : `Target: ${volleyPointsPerSet}`,
       score: finalScoreArray,
+      duration: finalDuration,
     };
+
     const updatedDB = [newRecord, ...matchDatabase];
     setMatchDatabase(updatedDB);
     saveDatabase(updatedDB);
@@ -433,9 +464,11 @@ export default function App() {
     setHistory([]);
     setMatchWinner(null);
     setMatchId(null);
+    setMatchStartTime(null);
+    setElapsedSeconds(0);
   };
 
-  // --- SCREENS ---
+  // SCREENS
   if (currentScreen === "sportSelect") {
     return (
       <ImageBackground
@@ -444,7 +477,11 @@ export default function App() {
         blurRadius={15}
       >
         <View style={styles.overlayDark}>
-          <Text style={styles.title}>Select Sport</Text>
+          <View style={styles.headerAreaTextLogo}>
+            <Text style={styles.mainTitleText}>MatchPoint</Text>
+            <Text style={styles.setupSubtitleText}>Courtside companion</Text>
+          </View>
+          <Text style={styles.Label}>Select Sport</Text>
           <View style={styles.ballOptionContainer}>
             <SportDial
               title="Tennis"
@@ -453,14 +490,14 @@ export default function App() {
               onPress={() => setSelectedSport("tennis")}
             />
             <SportDial
-              title="Volley"
+              title="Beach Volley"
               isSelected={selectedSport === "volleyball"}
               icon={volleyBallGraphic}
               onPress={() => setSelectedSport("volleyball")}
             />
           </View>
           <TouchableOpacity
-            style={styles.startMatchButton}
+            style={[styles.startMatchButton, { marginTop: 80 }]}
             onPress={() =>
               setCurrentScreen(
                 selectedSport === "tennis" ? "setup" : "volleySetup",
@@ -496,10 +533,11 @@ export default function App() {
               contentContainerStyle={{ paddingBottom: 60, paddingTop: 60 }}
               showsVerticalScrollIndicator={false}
             >
-              <View style={styles.headerArea}>
-                <Text style={styles.mainTitle}>Tennis Points</Text>
-                <View style={styles.titleDivider} />
-                <Text style={styles.setupSubtitle}>Match Setup</Text>
+              <View style={styles.headerAreaTextLogo}>
+                <Text style={styles.mainTitleText}>MatchPoint</Text>
+                <Text style={styles.setupSubtitleText}>
+                  Courtside companion
+                </Text>
               </View>
               <View style={styles.glassCard}>
                 <Text style={styles.Label}>Player Names</Text>
@@ -624,7 +662,10 @@ export default function App() {
               <View style={styles.actionButtonsContainer}>
                 <TouchableOpacity
                   style={styles.startMatchButton}
-                  onPress={() => setCurrentScreen("match")}
+                  onPress={() => {
+                    setCurrentScreen("match");
+                    setMatchStartTime(Date.now());
+                  }}
                 >
                   <Text style={styles.startMatchButtonText}>Start Match</Text>
                 </TouchableOpacity>
@@ -658,20 +699,17 @@ export default function App() {
               contentContainerStyle={{ paddingBottom: 60, paddingTop: 60 }}
               showsVerticalScrollIndicator={false}
             >
-              <View style={styles.headerArea}>
+              <View style={styles.headerAreaTextLogo}>
                 <Text
                   style={[
-                    styles.mainTitle,
+                    styles.mainTitleText,
                     { color: "#fff", textShadowColor: "#000" },
                   ]}
                 >
-                  Volleyball
+                  MatchPoint
                 </Text>
-                <View
-                  style={[styles.titleDivider, { backgroundColor: "#fff" }]}
-                />
-                <Text style={[styles.setupSubtitle, { color: "#fff" }]}>
-                  Match Setup
+                <Text style={[styles.setupSubtitleText, { color: "#fff" }]}>
+                  Courtside companion
                 </Text>
               </View>
               <View style={styles.beachGlassCard}>
@@ -791,7 +829,10 @@ export default function App() {
                     styles.startMatchButton,
                     { backgroundColor: "#ffb347" },
                   ]}
-                  onPress={() => setCurrentScreen("volleyMatch")}
+                  onPress={() => {
+                    setCurrentScreen("volleyMatch");
+                    setMatchStartTime(Date.now());
+                  }}
                 >
                   <Text style={styles.startMatchButtonText}>Start Match</Text>
                 </TouchableOpacity>
@@ -821,7 +862,10 @@ export default function App() {
       >
         <View style={styles.overlayDark}>
           <View style={{ paddingTop: 60, paddingBottom: 20, flex: 1 }}>
-            <Text style={styles.title}>Database</Text>
+            <View style={styles.headerAreaTextLogo}>
+              <Text style={styles.mainTitleText}>MatchPoint</Text>
+              <Text style={styles.setupSubtitleText}>Courtside companion</Text>
+            </View>
             {matchDatabase.length === 0 ? (
               <View style={styles.emptyStateContainer}>
                 <Text style={styles.Label}>No matches recorded.</Text>
@@ -836,6 +880,7 @@ export default function App() {
                       </Text>
                       <Text style={styles.dbFormat}>
                         {m.format} | {m.thirdSetRule}
+                        {m.duration ? ` | ⏱ ${formatTime(m.duration)}` : ""}
                       </Text>
                     </View>
                     <View style={styles.dbPlayersRow}>
@@ -910,6 +955,10 @@ export default function App() {
             { justifyContent: "center", alignItems: "center" },
           ]}
         >
+          <View style={styles.headerAreaTextLogo}>
+            <Text style={styles.mainTitleText}>MatchPoint</Text>
+            <Text style={styles.setupSubtitleText}>Courtside companion</Text>
+          </View>
           <Text style={styles.victorySubtitle}>Victory!</Text>
           <Text style={styles.victoryTitle}>{winnerName}</Text>
           <View style={styles.victoryScoreBox}>
@@ -943,18 +992,25 @@ export default function App() {
         resizeMode="cover"
       >
         <View style={styles.beachOverlay}>
-          <Text style={styles.titleMatch}>Beach Court</Text>
+          <View style={[styles.headerAreaTextLogo, { marginBottom: 20 }]}>
+            <Text
+              style={[
+                styles.mainTitleText,
+                { color: "#fff", textShadowColor: "#000", fontSize: 40 },
+              ]}
+            >
+              MatchPoint
+            </Text>
+          </View>
+          <View style={styles.timerBadge}>
+            <Text style={styles.timerText}>⏱ {formatTime(elapsedSeconds)}</Text>
+          </View>
+
           {matchId && (
             <View style={styles.liveIndicator}>
               <Text style={styles.liveIndicatorText}>
                 ● LIVE BROADCAST: {matchId}
               </Text>
-            </View>
-          )}
-
-          {showSideChangeReminder && (
-            <View style={styles.sideChangeAlert}>
-              <Text style={styles.sideChangeText}>🔄 CHANGE SIDES! 🔄</Text>
             </View>
           )}
 
@@ -1028,6 +1084,13 @@ export default function App() {
               </TouchableOpacity>
             </View>
           </View>
+
+          {showSideChangeReminder && (
+            <View style={styles.sideChangeAlert}>
+              <Text style={styles.sideChangeText}>🔄 CHANGE SIDES! 🔄</Text>
+            </View>
+          )}
+
           <View style={styles.bottomActionsBox}>
             <TouchableOpacity
               style={styles.liveShareBtn}
@@ -1065,7 +1128,15 @@ export default function App() {
         resizeMode="cover"
       >
         <View style={styles.overlayLight}>
-          <Text style={styles.titleMatch}>Court View</Text>
+          <View style={[styles.headerAreaTextLogo, { marginBottom: 20 }]}>
+            <Text style={[styles.mainTitleText, { fontSize: 40 }]}>
+              MatchPoint
+            </Text>
+          </View>
+          <View style={styles.timerBadge}>
+            <Text style={styles.timerText}>⏱ {formatTime(elapsedSeconds)}</Text>
+          </View>
+
           {matchId && (
             <View style={styles.liveIndicator}>
               <Text style={styles.liveIndicatorText}>
@@ -1179,7 +1250,6 @@ export default function App() {
     );
   }
 
-  // Pure safety fallback to prevent unhandled states
   return <View style={styles.container} />;
 }
 
@@ -1228,7 +1298,8 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFB347",
     padding: 12,
     borderRadius: 15,
-    marginBottom: 15,
+    marginTop: 20,
+    marginBottom: 5,
     alignItems: "center",
     borderWidth: 2,
     borderColor: "#fff",
@@ -1241,10 +1312,14 @@ const styles = StyleSheet.create({
     textShadowRadius: 2,
   },
 
-  headerArea: { marginBottom: 30, alignItems: "center" },
-  mainTitle: {
-    fontSize: 46,
-    fontWeight: "600",
+  headerAreaTextLogo: {
+    marginBottom: 50,
+    alignItems: "center",
+    width: "100%",
+  },
+  mainTitleText: {
+    fontSize: 56,
+    fontWeight: "700",
     fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
     color: "#FDF6E3",
     textShadowColor: "rgba(0,0,0,0.4)",
@@ -1252,47 +1327,39 @@ const styles = StyleSheet.create({
     letterSpacing: 2,
     textAlign: "center",
   },
-  titleDivider: {
-    height: 1,
-    width: "40%",
-    backgroundColor: "rgba(253, 246, 227, 0.4)",
-    marginVertical: 8,
-  },
-  setupSubtitle: {
-    fontSize: 18,
+  setupSubtitleText: {
+    fontSize: 24,
+    fontWeight: "500",
     fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
     color: "#FDF6E3",
-    opacity: 0.8,
-    letterSpacing: 4,
-    textTransform: "uppercase",
-  },
-  title: {
-    fontSize: 38,
-    fontWeight: "600",
-    fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
+    opacity: 0.9,
     textAlign: "center",
-    color: "#FDF6E3",
-    marginBottom: 25,
-    textShadowColor: "rgba(0,0,0,0.35)",
-    textShadowRadius: 8,
-    letterSpacing: 1.2,
+    marginTop: 5,
   },
-  titleMatch: {
-    fontSize: 30,
-    fontWeight: "600",
-    fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
-    textAlign: "center",
-    color: "#FDF6E3",
+
+  timerBadge: {
+    backgroundColor: "rgba(0, 0, 0, 0.25)",
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    borderRadius: 25,
+    alignSelf: "center",
     marginBottom: 15,
-    textShadowColor: "rgba(0,0,0,0.5)",
-    textShadowRadius: 5,
   },
-  Label: {
-    fontSize: 19,
-    fontWeight: "600",
+  timerText: {
+    color: "rgba(255, 255, 255, 0.85)",
+    fontSize: 22,
+    fontWeight: "700",
     fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
-    marginTop: 20,
-    marginBottom: 10,
+    fontVariant: ["tabular-nums"],
+    letterSpacing: 1,
+  },
+
+  Label: {
+    fontSize: 20,
+    fontWeight: "700",
+    fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
+    marginTop: 35,
+    marginBottom: 15,
     color: "#FDF6E3",
     textAlign: "center",
     textShadowColor: "rgba(0,0,0,0.2)",
@@ -1301,7 +1368,7 @@ const styles = StyleSheet.create({
   },
   glassCard: {
     backgroundColor: "rgba(255, 255, 255, 0.12)",
-    padding: 15,
+    padding: 25,
     borderRadius: 24,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.15)",
@@ -1310,18 +1377,19 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0, 0, 0, 0.25)",
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.18)",
-    padding: 14,
+    padding: 18,
     borderRadius: 14,
     fontSize: 16,
     color: "#fff",
-    marginBottom: 10,
+    marginBottom: 15,
     fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
   },
+
   ballOptionContainer: {
     flexDirection: "row",
     justifyContent: "center",
-    gap: 15,
-    marginBottom: 10,
+    gap: 20,
+    marginBottom: 15,
   },
   ballWrapper: {
     width: 75,
@@ -1356,43 +1424,48 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "bold",
     fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
+    textAlign: "center",
   },
   ballSubText: {
     fontSize: 12,
     fontWeight: "600",
     fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
+    textAlign: "center",
   },
   textInactive: { color: "#FFF" },
   textActive: { color: "#1a1a1a" },
-  actionButtonsContainer: { marginTop: 40, gap: 18, paddingBottom: 20 },
+
+  actionButtonsContainer: { marginTop: 60, gap: 25, paddingBottom: 40 },
   startMatchButton: {
     backgroundColor: "rgba(120, 165, 90, 0.95)",
-    padding: 20,
+    padding: 22,
     borderRadius: 30,
     alignItems: "center",
     shadowColor: "#000",
-    shadowOpacity: 0.15,
-    shadowRadius: 5,
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
   },
   startMatchButtonText: {
     color: "#FDF6E3",
-    fontSize: 20,
-    fontWeight: "600",
+    fontSize: 22,
+    fontWeight: "700",
     fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
-    letterSpacing: 0.5,
+    letterSpacing: 1,
   },
   historyButton: {
     backgroundColor: "rgba(255, 255, 255, 0.15)",
-    padding: 15,
+    padding: 18,
     borderRadius: 30,
     alignItems: "center",
   },
   historyButtonText: {
     color: "#FDF6E3",
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: "600",
     fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
   },
+
   tvScoreboardGlass: {
     backgroundColor: "rgba(20, 30, 20, 0.82)",
     borderRadius: 24,
@@ -1480,14 +1553,17 @@ const styles = StyleSheet.create({
     gap: 18,
   },
   liveShareBtn: {
-    backgroundColor: "#FDF6E3",
-    paddingVertical: 14,
+    backgroundColor: "rgba(255, 255, 255, 0.22)",
+    paddingVertical: 12,
     paddingHorizontal: 35,
     borderRadius: 30,
-    borderWidth: 1,
-    borderColor: "#7a9e7e",
   },
-  liveShareBtnText: { color: "#7a9e7e", fontWeight: "bold", fontSize: 16 },
+  liveShareBtnText: {
+    color: "#FDF6E3",
+    fontWeight: "600",
+    fontSize: 16,
+    fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
+  },
   undoButton: {
     backgroundColor: "rgba(255, 255, 255, 0.22)",
     paddingVertical: 12,
