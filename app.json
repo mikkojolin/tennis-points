@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "MatchPoint",
-    "slug": "matchpoint",
+    "slug": "tennis-points",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -25,6 +25,7 @@
       "eas": {
         "projectId": "f7244711-d82d-4e9b-876f-0987542210b5"
       }
-    }
+    },
+    "owner": "mikkojolin"
   }
 }
