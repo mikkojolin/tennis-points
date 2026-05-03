@@ -544,7 +544,6 @@ export default function App() {
 
   const confirmCancelMatch = () => {
     if (Platform.OS === "web") {
-      // Browser fallback for web preview testing
       const confirmed = window.confirm(
         "Are you sure you want to cancel the match? All current progress will be lost.",
       );
@@ -553,7 +552,6 @@ export default function App() {
         resetFullMatch();
       }
     } else {
-      // Native App pop-up
       Alert.alert(
         "Cancel Match",
         "Are you sure you want to cancel the match? All current progress will be lost.",
@@ -819,8 +817,8 @@ export default function App() {
               showsVerticalScrollIndicator={false}
             >
               <View style={styles.headerAreaTextLogo}>
-                <Text style={styles.beachMainTitleText}>MatchPoint</Text>
-                <Text style={styles.beachSetupSubtitleText}>
+                <Text style={styles.mainTitleText}>MatchPoint</Text>
+                <Text style={styles.setupSubtitleText}>
                   Courtside companion
                 </Text>
               </View>
@@ -1122,207 +1120,185 @@ export default function App() {
         resizeMode="cover"
       >
         <SafeAreaView style={styles.beachOverlay}>
-          <View style={[styles.headerAreaTextLogo, { marginBottom: 20 }]}>
-            <Text style={[styles.mainTitleText, { fontSize: 48 }]}>
-              MatchPoint
-            </Text>
-            <Text style={styles.setupSubtitleText}>Courtside companion</Text>
-          </View>
-          <View style={styles.beachTimerBadge}>
-            <Text style={styles.beachTimerText}>
-              ⏱ {formatTime(elapsedSeconds)}
-            </Text>
-          </View>
-
-          {enableLiveScore && matchId && (
-            <View style={styles.liveIndicator}>
-              <Text style={styles.liveIndicatorText}>
-                ● LIVE BROADCAST: {matchId}
+          <ScrollView
+            contentContainerStyle={{ flexGrow: 1 }}
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={[styles.headerAreaTextLogo, { marginBottom: 20 }]}>
+              <Text style={styles.mainTitleText}>MatchPoint</Text>
+              <Text style={styles.setupSubtitleText}>Courtside companion</Text>
+            </View>
+            <View style={styles.beachTimerBadge}>
+              <Text style={styles.beachTimerText}>
+                ⏱ {formatTime(elapsedSeconds)}
               </Text>
             </View>
-          )}
 
-          <View style={styles.beachGlassCard}>
-            <View style={styles.beachScoreRowHeader}>
-              <Text
-                style={[styles.beachScoreCell, styles.beachNameCell]}
-              ></Text>
-              {completedSets.map((_, i) => (
-                <Text key={i} style={styles.beachScoreCell}>
-                  S{i + 1}
+            {enableLiveScore && matchId && (
+              <View style={styles.liveIndicator}>
+                <Text style={styles.liveIndicatorText}>
+                  ● LIVE BROADCAST: {matchId}
                 </Text>
-              ))}
-              <Text style={[styles.beachScoreCell, { fontWeight: "900" }]}>
-                S
-              </Text>
-              <Text
-                style={[
-                  styles.beachScoreCell,
-                  { color: "#d90000", fontWeight: "900" },
-                ]}
-              >
-                P
-              </Text>
-            </View>
-            <View style={styles.beachScoreRow}>
-              <Text
-                style={[styles.beachScoreCell, styles.beachNameCell]}
-                adjustsFontSizeToFit
-                numberOfLines={1}
-              >
-                {p1Name || "Team 1"}
-              </Text>
-              {completedSets.map((s, i) => (
+              </View>
+            )}
+
+            <View style={styles.beachGlassCard}>
+              <View style={styles.beachScoreRowHeader}>
                 <Text
-                  key={i}
-                  style={styles.beachScoreCell}
+                  style={[styles.beachScoreCell, styles.beachNameCell]}
+                ></Text>
+                <Text style={[styles.beachScoreCell, { fontWeight: "900" }]}>
+                  S
+                </Text>
+                <Text
+                  style={[
+                    styles.beachScoreCell,
+                    { color: "#d90000", fontWeight: "900" },
+                  ]}
+                >
+                  P
+                </Text>
+              </View>
+              <View style={styles.beachScoreRow}>
+                <Text
+                  style={[styles.beachScoreCell, styles.beachNameCell]}
                   adjustsFontSizeToFit
                   numberOfLines={1}
                 >
-                  {s.p1}
+                  {p1Name || "Team 1"}
                 </Text>
-              ))}
-              <Text
-                style={[styles.beachScoreCell, styles.beachActiveCell]}
-                adjustsFontSizeToFit
-                numberOfLines={1}
-              >
-                {p1Sets}
-              </Text>
-              <Text
-                style={[styles.beachScoreCell, styles.beachPointCell]}
-                adjustsFontSizeToFit
-                numberOfLines={1}
-              >
-                {p1Points}
-              </Text>
-            </View>
-            <View style={styles.beachScoreRow}>
-              <Text
-                style={[styles.beachScoreCell, styles.beachNameCell]}
-                adjustsFontSizeToFit
-                numberOfLines={1}
-              >
-                {p2Name || "Team 2"}
-              </Text>
-              {completedSets.map((s, i) => (
                 <Text
-                  key={i}
-                  style={styles.beachScoreCell}
+                  style={[styles.beachScoreCell, styles.beachActiveCell]}
                   adjustsFontSizeToFit
                   numberOfLines={1}
                 >
-                  {s.p2}
+                  {p1Sets}
                 </Text>
-              ))}
-              <Text
-                style={[styles.beachScoreCell, styles.beachActiveCell]}
-                adjustsFontSizeToFit
-                numberOfLines={1}
-              >
-                {p2Sets}
-              </Text>
-              <Text
-                style={[styles.beachScoreCell, styles.beachPointCell]}
-                adjustsFontSizeToFit
-                numberOfLines={1}
-              >
-                {p2Points}
-              </Text>
+                <Text
+                  style={[styles.beachScoreCell, styles.beachPointCell]}
+                  adjustsFontSizeToFit
+                  numberOfLines={1}
+                >
+                  {p1Points}
+                </Text>
+              </View>
+              <View style={styles.beachScoreRow}>
+                <Text
+                  style={[styles.beachScoreCell, styles.beachNameCell]}
+                  adjustsFontSizeToFit
+                  numberOfLines={1}
+                >
+                  {p2Name || "Team 2"}
+                </Text>
+                <Text
+                  style={[styles.beachScoreCell, styles.beachActiveCell]}
+                  adjustsFontSizeToFit
+                  numberOfLines={1}
+                >
+                  {p2Sets}
+                </Text>
+                <Text
+                  style={[styles.beachScoreCell, styles.beachPointCell]}
+                  adjustsFontSizeToFit
+                  numberOfLines={1}
+                >
+                  {p2Points}
+                </Text>
+              </View>
             </View>
-          </View>
 
-          <View style={styles.actionArea}>
-            <View style={styles.beachPlayerCardGlass}>
-              <Text
-                style={styles.beachActionName}
-                adjustsFontSizeToFit
-                numberOfLines={1}
-              >
-                {p1Name || "Team 1"}
-              </Text>
+            <View style={styles.actionArea}>
+              <View style={styles.beachPlayerCardGlass}>
+                <Text
+                  style={styles.beachActionName}
+                  adjustsFontSizeToFit
+                  numberOfLines={1}
+                >
+                  {p1Name || "Team 1"}
+                </Text>
+                <TouchableOpacity
+                  style={[
+                    styles.scoreButton,
+                    {
+                      backgroundColor: "#ffb347",
+                      borderWidth: 2,
+                      borderColor: "#000",
+                    },
+                  ]}
+                  onPress={() => handleVolleyScore(1)}
+                >
+                  <Text style={styles.beachScoreButtonText}>+ Point</Text>
+                </TouchableOpacity>
+              </View>
+              <View style={styles.beachPlayerCardGlass}>
+                <Text
+                  style={styles.beachActionName}
+                  adjustsFontSizeToFit
+                  numberOfLines={1}
+                >
+                  {p2Name || "Team 2"}
+                </Text>
+                <TouchableOpacity
+                  style={[
+                    styles.scoreButton,
+                    {
+                      backgroundColor: "#ffb347",
+                      borderWidth: 2,
+                      borderColor: "#000",
+                    },
+                  ]}
+                  onPress={() => handleVolleyScore(2)}
+                >
+                  <Text style={styles.beachScoreButtonText}>+ Point</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {history.length > 0 && (
               <TouchableOpacity
                 style={[
-                  styles.scoreButton,
+                  styles.beachUndoButton,
                   {
-                    backgroundColor: "#ffb347",
-                    borderWidth: 2,
-                    borderColor: "#000",
+                    alignSelf: "center",
+                    marginTop: 15,
+                    width: "100%",
+                    alignItems: "center",
                   },
                 ]}
-                onPress={() => handleVolleyScore(1)}
+                onPress={handleUndo}
               >
-                <Text style={styles.beachScoreButtonText}>+ Point</Text>
-              </TouchableOpacity>
-            </View>
-            <View style={styles.beachPlayerCardGlass}>
-              <Text
-                style={styles.beachActionName}
-                adjustsFontSizeToFit
-                numberOfLines={1}
-              >
-                {p2Name || "Team 2"}
-              </Text>
-              <TouchableOpacity
-                style={[
-                  styles.scoreButton,
-                  {
-                    backgroundColor: "#ffb347",
-                    borderWidth: 2,
-                    borderColor: "#000",
-                  },
-                ]}
-                onPress={() => handleVolleyScore(2)}
-              >
-                <Text style={styles.beachScoreButtonText}>+ Point</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {history.length > 0 && (
-            <TouchableOpacity
-              style={[
-                styles.beachUndoButton,
-                {
-                  alignSelf: "center",
-                  marginTop: 15,
-                  width: "100%",
-                  alignItems: "center",
-                },
-              ]}
-              onPress={handleUndo}
-            >
-              <Text style={styles.beachUndoButtonText}>↩ Undo</Text>
-            </TouchableOpacity>
-          )}
-
-          {showSideChangeReminder && (
-            <View style={styles.beachSideChangeAlert}>
-              <Text style={styles.beachSideChangeText}>
-                🔄 CHANGE SIDES! 🔄
-              </Text>
-            </View>
-          )}
-
-          <View style={styles.bottomActionsBox}>
-            {enableLiveScore && (
-              <TouchableOpacity
-                style={styles.beachUndoButton}
-                onPress={handleLiveShare}
-              >
-                <Text style={styles.beachUndoButtonText}>
-                  📡 Share Live Score
-                </Text>
+                <Text style={styles.beachUndoButtonText}>↩ Undo</Text>
               </TouchableOpacity>
             )}
 
-            <TouchableOpacity
-              style={styles.cancelButton}
-              onPress={confirmCancelMatch}
-            >
-              <Text style={styles.beachCancelButtonText}>Cancel Match</Text>
-            </TouchableOpacity>
-          </View>
+            {showSideChangeReminder && (
+              <View style={styles.beachSideChangeAlert}>
+                <Text style={styles.beachSideChangeText}>
+                  🔄 CHANGE SIDES! 🔄
+                </Text>
+              </View>
+            )}
+
+            <View style={styles.bottomActionsBox}>
+              {enableLiveScore && (
+                <TouchableOpacity
+                  style={styles.beachUndoButton}
+                  onPress={handleLiveShare}
+                >
+                  <Text style={styles.beachUndoButtonText}>
+                    📡 Share Live Score
+                  </Text>
+                </TouchableOpacity>
+              )}
+
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={confirmCancelMatch}
+              >
+                <Text style={styles.beachCancelButtonText}>Cancel Match</Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
         </SafeAreaView>
       </ImageBackground>
     );
@@ -1336,177 +1312,188 @@ export default function App() {
         resizeMode="cover"
       >
         <SafeAreaView style={styles.overlayLight}>
-          <View style={[styles.headerAreaTextLogo, { marginBottom: 20 }]}>
-            <Text style={[styles.mainTitleText, { fontSize: 40 }]}>
-              MatchPoint
-            </Text>
-            <Text style={styles.setupSubtitleText}>Courtside companion</Text>
-          </View>
-          <View style={styles.timerBadge}>
-            <Text style={styles.timerText}>⏱ {formatTime(elapsedSeconds)}</Text>
-          </View>
+          <ScrollView
+            contentContainerStyle={{ flexGrow: 1 }}
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={[styles.headerAreaTextLogo, { marginBottom: 20 }]}>
+              <Text style={styles.mainTitleText}>MatchPoint</Text>
+              <Text style={styles.setupSubtitleText}>Courtside companion</Text>
+            </View>
+            <View style={styles.timerBadge}>
+              <Text style={styles.timerText}>
+                ⏱ {formatTime(elapsedSeconds)}
+              </Text>
+            </View>
 
-          {enableLiveScore && matchId && (
-            <View style={styles.liveIndicator}>
-              <Text style={styles.liveIndicatorText}>
-                ● LIVE BROADCAST: {matchId}
-              </Text>
-            </View>
-          )}
-          <View style={styles.ruleBanner}>
-            <Text style={styles.ruleInfo}>
-              {format === "classic" ? "Classic" : "Fast4"} |{" "}
-              {noAdRule ? "No-Ad" : "Ad"}
-              {isMatchTiebreak
-                ? `\n🎾 MATCH TIEBREAK TO ${matchTbLength} 🎾`
-                : ""}
-            </Text>
-          </View>
-          <View style={styles.tvScoreboardGlass}>
-            <View style={styles.scoreRowHeader}>
-              <Text style={[styles.scoreCell, styles.nameCell]}></Text>
-              {completedSets.map((_, i) => (
-                <Text key={i} style={styles.scoreCell}>
-                  S{i + 1}
+            {enableLiveScore && matchId && (
+              <View style={styles.liveIndicator}>
+                <Text style={styles.liveIndicatorText}>
+                  ● LIVE BROADCAST: {matchId}
                 </Text>
-              ))}
-              <Text style={[styles.scoreCell, styles.activeHeaderCell]}>G</Text>
-              <Text style={[styles.scoreCell, styles.pointHeaderCell]}>P</Text>
-            </View>
-            <View style={styles.scoreRow}>
-              <Text
-                style={[styles.scoreCell, styles.nameCell]}
-                adjustsFontSizeToFit
-                numberOfLines={1}
-              >
-                {p1Name || "P1"}
+              </View>
+            )}
+            <View style={styles.ruleBanner}>
+              <Text style={styles.ruleInfo}>
+                {format === "classic" ? "Classic" : "Fast4"} |{" "}
+                {noAdRule ? "No-Ad" : "Ad"}
+                {isMatchTiebreak
+                  ? `\n🎾 MATCH TIEBREAK TO ${matchTbLength} 🎾`
+                  : ""}
               </Text>
-              {completedSets.map((s, i) => (
+            </View>
+            <View style={styles.tvScoreboardGlass}>
+              <View style={styles.scoreRowHeader}>
+                <Text style={[styles.scoreCell, styles.nameCell]}></Text>
+                {completedSets.map((_, i) => (
+                  <Text key={i} style={styles.scoreCell}>
+                    S{i + 1}
+                  </Text>
+                ))}
+                <Text style={[styles.scoreCell, styles.activeHeaderCell]}>
+                  G
+                </Text>
+                <Text style={[styles.scoreCell, styles.pointHeaderCell]}>
+                  P
+                </Text>
+              </View>
+              <View style={styles.scoreRow}>
                 <Text
-                  key={i}
-                  style={styles.scoreCell}
+                  style={[styles.scoreCell, styles.nameCell]}
                   adjustsFontSizeToFit
                   numberOfLines={1}
                 >
-                  {s.p1}
+                  {p1Name || "P1"}
                 </Text>
-              ))}
-              <Text
-                style={[styles.scoreCell, styles.activeCell]}
-                adjustsFontSizeToFit
-                numberOfLines={1}
-              >
-                {p1Games}
-              </Text>
-              <Text
-                style={[styles.scoreCell, styles.pointCell]}
-                adjustsFontSizeToFit
-                numberOfLines={1}
-              >
-                {isTiebreak ? p1Points : getTennisScore(p1Points)}
-              </Text>
-            </View>
-            <View style={styles.scoreRow}>
-              <Text
-                style={[styles.scoreCell, styles.nameCell]}
-                adjustsFontSizeToFit
-                numberOfLines={1}
-              >
-                {p2Name || "P2"}
-              </Text>
-              {completedSets.map((s, i) => (
+                {completedSets.map((s, i) => (
+                  <Text
+                    key={i}
+                    style={styles.scoreCell}
+                    adjustsFontSizeToFit
+                    numberOfLines={1}
+                  >
+                    {s.p1}
+                  </Text>
+                ))}
                 <Text
-                  key={i}
-                  style={styles.scoreCell}
+                  style={[styles.scoreCell, styles.activeCell]}
                   adjustsFontSizeToFit
                   numberOfLines={1}
                 >
-                  {s.p2}
+                  {p1Games}
                 </Text>
-              ))}
-              <Text
-                style={[styles.scoreCell, styles.activeCell]}
-                adjustsFontSizeToFit
-                numberOfLines={1}
-              >
-                {p2Games}
-              </Text>
-              <Text
-                style={[styles.scoreCell, styles.pointCell]}
-                adjustsFontSizeToFit
-                numberOfLines={1}
-              >
-                {isTiebreak ? p2Points : getTennisScore(p2Points)}
-              </Text>
+                <Text
+                  style={[styles.scoreCell, styles.pointCell]}
+                  adjustsFontSizeToFit
+                  numberOfLines={1}
+                >
+                  {isTiebreak ? p1Points : getTennisScore(p1Points)}
+                </Text>
+              </View>
+              <View style={styles.scoreRow}>
+                <Text
+                  style={[styles.scoreCell, styles.nameCell]}
+                  adjustsFontSizeToFit
+                  numberOfLines={1}
+                >
+                  {p2Name || "P2"}
+                </Text>
+                {completedSets.map((s, i) => (
+                  <Text
+                    key={i}
+                    style={styles.scoreCell}
+                    adjustsFontSizeToFit
+                    numberOfLines={1}
+                  >
+                    {s.p2}
+                  </Text>
+                ))}
+                <Text
+                  style={[styles.scoreCell, styles.activeCell]}
+                  adjustsFontSizeToFit
+                  numberOfLines={1}
+                >
+                  {p2Games}
+                </Text>
+                <Text
+                  style={[styles.scoreCell, styles.pointCell]}
+                  adjustsFontSizeToFit
+                  numberOfLines={1}
+                >
+                  {isTiebreak ? p2Points : getTennisScore(p2Points)}
+                </Text>
+              </View>
             </View>
-          </View>
-          <View style={styles.actionArea}>
-            <View style={styles.playerCardGlass}>
-              <Text
-                style={styles.actionName}
-                adjustsFontSizeToFit
-                numberOfLines={1}
-              >
-                {p1Name || "P1"}
-              </Text>
-              <TouchableOpacity
-                style={styles.scoreButton}
-                onPress={() => handleTennisScore(1)}
-              >
-                <Text style={styles.scoreButtonText}>+ Point</Text>
-              </TouchableOpacity>
+            <View style={styles.actionArea}>
+              <View style={styles.playerCardGlass}>
+                <Text
+                  style={styles.actionName}
+                  adjustsFontSizeToFit
+                  numberOfLines={1}
+                >
+                  {p1Name || "P1"}
+                </Text>
+                <TouchableOpacity
+                  style={styles.scoreButton}
+                  onPress={() => handleTennisScore(1)}
+                >
+                  <Text style={styles.scoreButtonText}>+ Point</Text>
+                </TouchableOpacity>
+              </View>
+              <View style={styles.playerCardGlass}>
+                <Text
+                  style={styles.actionName}
+                  adjustsFontSizeToFit
+                  numberOfLines={1}
+                >
+                  {p2Name || "P2"}
+                </Text>
+                <TouchableOpacity
+                  style={styles.scoreButton}
+                  onPress={() => handleTennisScore(2)}
+                >
+                  <Text style={styles.scoreButtonText}>+ Point</Text>
+                </TouchableOpacity>
+              </View>
             </View>
-            <View style={styles.playerCardGlass}>
-              <Text
-                style={styles.actionName}
-                adjustsFontSizeToFit
-                numberOfLines={1}
-              >
-                {p2Name || "P2"}
-              </Text>
-              <TouchableOpacity
-                style={styles.scoreButton}
-                onPress={() => handleTennisScore(2)}
-              >
-                <Text style={styles.scoreButtonText}>+ Point</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
 
-          {history.length > 0 && (
-            <TouchableOpacity
-              style={[
-                styles.undoButton,
-                {
-                  alignSelf: "center",
-                  marginTop: 15,
-                  width: "100%",
-                  alignItems: "center",
-                },
-              ]}
-              onPress={handleUndo}
-            >
-              <Text style={styles.undoButtonText}>↩ Undo</Text>
-            </TouchableOpacity>
-          )}
-
-          <View style={styles.bottomActionsBox}>
-            {enableLiveScore && (
+            {history.length > 0 && (
               <TouchableOpacity
-                style={styles.liveShareBtn}
-                onPress={handleLiveShare}
+                style={[
+                  styles.undoButton,
+                  {
+                    alignSelf: "center",
+                    marginTop: 15,
+                    width: "100%",
+                    alignItems: "center",
+                  },
+                ]}
+                onPress={handleUndo}
               >
-                <Text style={styles.liveShareBtnText}>📡 Share Live Score</Text>
+                <Text style={styles.undoButtonText}>↩ Undo</Text>
               </TouchableOpacity>
             )}
 
-            <TouchableOpacity
-              style={styles.cancelButton}
-              onPress={confirmCancelMatch}
-            >
-              <Text style={styles.cancelButtonText}>Cancel Match</Text>
-            </TouchableOpacity>
-          </View>
+            <View style={styles.bottomActionsBox}>
+              {enableLiveScore && (
+                <TouchableOpacity
+                  style={styles.liveShareBtn}
+                  onPress={handleLiveShare}
+                >
+                  <Text style={styles.liveShareBtnText}>
+                    📡 Share Live Score
+                  </Text>
+                </TouchableOpacity>
+              )}
+
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={confirmCancelMatch}
+              >
+                <Text style={styles.cancelButtonText}>Cancel Match</Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
         </SafeAreaView>
       </ImageBackground>
     );
@@ -1545,7 +1532,7 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   mainTitleText: {
-    fontSize: 56,
+    fontSize: 48,
     fontWeight: "700",
     fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
     color: "#FDF6E3",
@@ -1565,7 +1552,7 @@ const styles = StyleSheet.create({
   },
 
   mainSelectLabel: {
-    fontSize: 34,
+    fontSize: 28,
     fontWeight: "800",
     fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
     marginTop: 10,
@@ -1813,6 +1800,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     alignItems: "center",
     gap: 18,
+    paddingTop: 30,
   },
   liveShareBtn: {
     backgroundColor: "rgba(255, 255, 255, 0.22)",
@@ -1984,25 +1972,6 @@ const styles = StyleSheet.create({
   },
 
   // HIGH-CONTRAST BEACH VOLLEY UI STYLES
-  beachMainTitleText: {
-    fontSize: 56,
-    fontWeight: "900",
-    fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
-    color: "#000",
-    textAlign: "center",
-    textShadowColor: "rgba(255,255,255,0.8)",
-    textShadowRadius: 6,
-  },
-  beachSetupSubtitleText: {
-    fontSize: 26,
-    fontWeight: "800",
-    fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
-    color: "#000",
-    textAlign: "center",
-    marginTop: 5,
-    textShadowColor: "rgba(255,255,255,0.8)",
-    textShadowRadius: 4,
-  },
   beachLabel: {
     fontSize: 24,
     fontWeight: "900",
@@ -2077,7 +2046,7 @@ const styles = StyleSheet.create({
   beachScoreCell: {
     flex: 1,
     textAlign: "center",
-    fontSize: 50,
+    fontSize: 32,
     color: "#000",
     fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
     fontWeight: "700",
@@ -2086,19 +2055,19 @@ const styles = StyleSheet.create({
     flex: 2.5,
     textAlign: "left",
     fontWeight: "800",
-    fontSize: 50,
+    fontSize: 32,
     color: "#000",
   },
   beachActiveCell: {
     color: "#000",
     fontWeight: "800",
-    fontSize: 50,
+    fontSize: 38,
     fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
   },
   beachPointCell: {
     color: "#000",
     fontWeight: "900",
-    fontSize: 50,
+    fontSize: 48,
     fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
   },
 
