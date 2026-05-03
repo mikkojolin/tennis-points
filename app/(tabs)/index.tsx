@@ -1,10 +1,12 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect, useState } from "react";
 import {
+  Alert,
   Image,
   ImageBackground,
   KeyboardAvoidingView,
   Platform,
+  SafeAreaView,
   ScrollView,
   Share,
   StyleSheet,
@@ -188,6 +190,9 @@ export default function App() {
     "tennis",
   );
 
+  // Settings State
+  const [enableLiveScore, setEnableLiveScore] = useState(false);
+
   // Shared Setup State
   const [p1Name, setP1Name] = useState("");
   const [p2Name, setP2Name] = useState("");
@@ -281,7 +286,7 @@ export default function App() {
   }, [currentScreen, matchStartTime]);
 
   useEffect(() => {
-    if (matchId) {
+    if (matchId && enableLiveScore) {
       const matchRef = ref(db, "live_matches/" + matchId);
       set(matchRef, {
         sport: selectedSport === "tennis" ? "Tennis" : "Beach Volley",
@@ -321,6 +326,7 @@ export default function App() {
     p2Name,
     matchId,
     selectedSport,
+    enableLiveScore,
   ]);
 
   // ENGINE FUNCTIONS
@@ -536,6 +542,36 @@ export default function App() {
     setElapsedSeconds(0);
   };
 
+  const confirmCancelMatch = () => {
+    if (Platform.OS === "web") {
+      // Browser fallback for web preview testing
+      const confirmed = window.confirm(
+        "Are you sure you want to cancel the match? All current progress will be lost.",
+      );
+      if (confirmed) {
+        setCurrentScreen("sportSelect");
+        resetFullMatch();
+      }
+    } else {
+      // Native App pop-up
+      Alert.alert(
+        "Cancel Match",
+        "Are you sure you want to cancel the match? All current progress will be lost.",
+        [
+          { text: "Keep Playing", style: "cancel" },
+          {
+            text: "Yes, Cancel",
+            style: "destructive",
+            onPress: () => {
+              setCurrentScreen("sportSelect");
+              resetFullMatch();
+            },
+          },
+        ],
+      );
+    }
+  };
+
   // SCREENS
   if (currentScreen === "sportSelect") {
     return (
@@ -544,7 +580,7 @@ export default function App() {
         style={styles.container}
         blurRadius={15}
       >
-        <View style={styles.overlayDark}>
+        <SafeAreaView style={styles.overlayDark}>
           <View style={styles.headerAreaTextLogo}>
             <Text style={styles.mainTitleText}>MatchPoint</Text>
             <Text style={styles.setupSubtitleText}>Courtside companion</Text>
@@ -566,8 +602,21 @@ export default function App() {
               size={100}
             />
           </View>
+
           <TouchableOpacity
-            style={[styles.startMatchButton, { marginTop: 80 }]}
+            style={[
+              styles.liveToggleBtn,
+              enableLiveScore && styles.liveToggleBtnActive,
+            ]}
+            onPress={() => setEnableLiveScore(!enableLiveScore)}
+          >
+            <Text style={styles.liveToggleText}>
+              📡 Live Sharing: {enableLiveScore ? "ON" : "OFF"}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.startMatchButton, { marginTop: 60 }]}
             onPress={() =>
               setCurrentScreen(
                 selectedSport === "tennis" ? "setup" : "volleySetup",
@@ -582,7 +631,7 @@ export default function App() {
           >
             <Text style={styles.historyButtonText}>📚 Match Database</Text>
           </TouchableOpacity>
-        </View>
+        </SafeAreaView>
       </ImageBackground>
     );
   }
@@ -594,13 +643,13 @@ export default function App() {
         style={styles.container}
         blurRadius={12}
       >
-        <View style={styles.overlayDark}>
+        <SafeAreaView style={styles.overlayDark}>
           <KeyboardAvoidingView
             behavior={Platform.OS === "ios" ? "padding" : "height"}
             style={{ flex: 1 }}
           >
             <ScrollView
-              contentContainerStyle={{ paddingBottom: 60, paddingTop: 60 }}
+              contentContainerStyle={{ paddingBottom: 60, paddingTop: 30 }}
               showsVerticalScrollIndicator={false}
             >
               <View style={styles.headerAreaTextLogo}>
@@ -748,7 +797,7 @@ export default function App() {
               </View>
             </ScrollView>
           </KeyboardAvoidingView>
-        </View>
+        </SafeAreaView>
       </ImageBackground>
     );
   }
@@ -760,13 +809,13 @@ export default function App() {
         style={styles.container}
         blurRadius={12}
       >
-        <View style={styles.beachOverlay}>
+        <SafeAreaView style={styles.beachOverlay}>
           <KeyboardAvoidingView
             behavior={Platform.OS === "ios" ? "padding" : "height"}
             style={{ flex: 1 }}
           >
             <ScrollView
-              contentContainerStyle={{ paddingBottom: 60, paddingTop: 60 }}
+              contentContainerStyle={{ paddingBottom: 60, paddingTop: 30 }}
               showsVerticalScrollIndicator={false}
             >
               <View style={styles.headerAreaTextLogo}>
@@ -929,7 +978,7 @@ export default function App() {
               </View>
             </ScrollView>
           </KeyboardAvoidingView>
-        </View>
+        </SafeAreaView>
       </ImageBackground>
     );
   }
@@ -941,8 +990,8 @@ export default function App() {
         style={styles.container}
         blurRadius={15}
       >
-        <View style={styles.overlayDark}>
-          <View style={{ paddingTop: 60, paddingBottom: 20, flex: 1 }}>
+        <SafeAreaView style={styles.overlayDark}>
+          <View style={{ paddingTop: 30, paddingBottom: 20, flex: 1 }}>
             <View style={styles.headerAreaTextLogo}>
               <Text style={styles.mainTitleText}>MatchPoint</Text>
               <Text style={styles.setupSubtitleText}>Courtside companion</Text>
@@ -1016,7 +1065,7 @@ export default function App() {
               <Text style={styles.backButtonText}>← Back</Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </SafeAreaView>
       </ImageBackground>
     );
   }
@@ -1030,7 +1079,7 @@ export default function App() {
         style={styles.container}
         blurRadius={5}
       >
-        <View
+        <SafeAreaView
           style={[
             styles.overlayDark,
             { justifyContent: "center", alignItems: "center" },
@@ -1060,7 +1109,7 @@ export default function App() {
           >
             <Text style={styles.startMatchButtonText}>Return to Menu</Text>
           </TouchableOpacity>
-        </View>
+        </SafeAreaView>
       </ImageBackground>
     );
   }
@@ -1072,7 +1121,7 @@ export default function App() {
         style={styles.container}
         resizeMode="cover"
       >
-        <View style={styles.beachOverlay}>
+        <SafeAreaView style={styles.beachOverlay}>
           <View style={[styles.headerAreaTextLogo, { marginBottom: 20 }]}>
             <Text style={[styles.mainTitleText, { fontSize: 48 }]}>
               MatchPoint
@@ -1085,7 +1134,7 @@ export default function App() {
             </Text>
           </View>
 
-          {matchId && (
+          {enableLiveScore && matchId && (
             <View style={styles.liveIndicator}>
               <Text style={styles.liveIndicatorText}>
                 ● LIVE BROADCAST: {matchId}
@@ -1256,26 +1305,25 @@ export default function App() {
           )}
 
           <View style={styles.bottomActionsBox}>
-            <TouchableOpacity
-              style={styles.beachUndoButton}
-              onPress={handleLiveShare}
-            >
-              <Text style={styles.beachUndoButtonText}>
-                📡 Share Live Score
-              </Text>
-            </TouchableOpacity>
+            {enableLiveScore && (
+              <TouchableOpacity
+                style={styles.beachUndoButton}
+                onPress={handleLiveShare}
+              >
+                <Text style={styles.beachUndoButtonText}>
+                  📡 Share Live Score
+                </Text>
+              </TouchableOpacity>
+            )}
 
             <TouchableOpacity
               style={styles.cancelButton}
-              onPress={() => {
-                setCurrentScreen("sportSelect");
-                resetFullMatch();
-              }}
+              onPress={confirmCancelMatch}
             >
               <Text style={styles.beachCancelButtonText}>Cancel Match</Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </SafeAreaView>
       </ImageBackground>
     );
   }
@@ -1287,7 +1335,7 @@ export default function App() {
         style={styles.container}
         resizeMode="cover"
       >
-        <View style={styles.overlayLight}>
+        <SafeAreaView style={styles.overlayLight}>
           <View style={[styles.headerAreaTextLogo, { marginBottom: 20 }]}>
             <Text style={[styles.mainTitleText, { fontSize: 40 }]}>
               MatchPoint
@@ -1298,7 +1346,7 @@ export default function App() {
             <Text style={styles.timerText}>⏱ {formatTime(elapsedSeconds)}</Text>
           </View>
 
-          {matchId && (
+          {enableLiveScore && matchId && (
             <View style={styles.liveIndicator}>
               <Text style={styles.liveIndicatorText}>
                 ● LIVE BROADCAST: {matchId}
@@ -1443,24 +1491,23 @@ export default function App() {
           )}
 
           <View style={styles.bottomActionsBox}>
-            <TouchableOpacity
-              style={styles.liveShareBtn}
-              onPress={handleLiveShare}
-            >
-              <Text style={styles.liveShareBtnText}>📡 Share Live Score</Text>
-            </TouchableOpacity>
+            {enableLiveScore && (
+              <TouchableOpacity
+                style={styles.liveShareBtn}
+                onPress={handleLiveShare}
+              >
+                <Text style={styles.liveShareBtnText}>📡 Share Live Score</Text>
+              </TouchableOpacity>
+            )}
 
             <TouchableOpacity
               style={styles.cancelButton}
-              onPress={() => {
-                setCurrentScreen("sportSelect");
-                resetFullMatch();
-              }}
+              onPress={confirmCancelMatch}
             >
               <Text style={styles.cancelButtonText}>Cancel Match</Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </SafeAreaView>
       </ImageBackground>
     );
   }
@@ -1475,12 +1522,21 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0, 0, 0, 0.4)",
     paddingHorizontal: 20,
     justifyContent: "center",
+    paddingBottom: Platform.OS === "android" ? 40 : 20,
   },
   overlayLight: {
     flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0.2)",
-    paddingTop: 60,
+    paddingTop: 30,
     paddingHorizontal: 20,
+    paddingBottom: Platform.OS === "android" ? 40 : 20,
+  },
+  beachOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(79, 164, 184, 0.4)",
+    paddingTop: 30,
+    paddingHorizontal: 20,
+    paddingBottom: Platform.OS === "android" ? 40 : 20,
   },
 
   headerAreaTextLogo: {
@@ -1519,6 +1575,27 @@ const styles = StyleSheet.create({
     textShadowColor: "rgba(0,0,0,0.4)",
     textShadowRadius: 5,
     letterSpacing: 1,
+  },
+
+  liveToggleBtn: {
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
+    paddingVertical: 12,
+    paddingHorizontal: 30,
+    borderRadius: 25,
+    marginTop: 30,
+    alignSelf: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.3)",
+  },
+  liveToggleBtnActive: {
+    backgroundColor: "rgba(120, 165, 90, 0.8)",
+    borderColor: "#DFFF00",
+  },
+  liveToggleText: {
+    color: "#FFF",
+    fontSize: 16,
+    fontWeight: "bold",
+    fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
   },
 
   // TENNIS STYLES
@@ -1733,7 +1810,7 @@ const styles = StyleSheet.create({
   },
   bottomActionsBox: {
     marginTop: "auto",
-    marginBottom: 40,
+    marginBottom: 10,
     alignItems: "center",
     gap: 18,
   },
@@ -1907,12 +1984,6 @@ const styles = StyleSheet.create({
   },
 
   // HIGH-CONTRAST BEACH VOLLEY UI STYLES
-  beachOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(79, 164, 184, 0.4)",
-    paddingTop: 60,
-    paddingHorizontal: 20,
-  },
   beachMainTitleText: {
     fontSize: 56,
     fontWeight: "900",
