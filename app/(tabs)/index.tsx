@@ -65,46 +65,113 @@ type MatchRecord = {
 const STORAGE_KEY = "@sports_match_database";
 
 // UI COMPONENTS
-const SportDial = ({ title, subTitle, isSelected, onPress, icon }: any) => (
-  <TouchableOpacity
-    style={[
-      styles.ballWrapper,
-      isSelected ? styles.ballWrapperSelected : styles.ballWrapperUnselected,
-    ]}
-    onPress={onPress}
-    activeOpacity={0.7}
-  >
-    {isSelected && (
-      <View style={styles.imageMask}>
-        <Image
-          source={icon}
-          style={styles.ballGraphicSelected}
-          resizeMode="cover"
-        />
-      </View>
-    )}
-    <View style={styles.ballContent}>
-      <Text
+const SportDial = ({
+  title,
+  subTitle,
+  isSelected,
+  onPress,
+  icon,
+  darkText,
+  size = 75,
+  textBelow = false,
+}: any) => {
+  const radius = size / 2;
+  return (
+    <View style={{ alignItems: "center" }}>
+      <TouchableOpacity
         style={[
-          styles.ballText,
-          isSelected ? styles.textActive : styles.textInactive,
+          styles.ballWrapper,
+          { width: size, height: size, borderRadius: radius },
+          isSelected
+            ? styles.ballWrapperSelected
+            : darkText
+              ? styles.ballWrapperUnselectedDark
+              : styles.ballWrapperUnselected,
         ]}
+        onPress={onPress}
+        activeOpacity={0.7}
       >
-        {title}
-      </Text>
-      {subTitle && (
-        <Text
-          style={[
-            styles.ballSubText,
-            isSelected ? styles.textActive : styles.textInactive,
-          ]}
-        >
-          {subTitle}
-        </Text>
+        {isSelected && (
+          <View style={[styles.imageMask, { borderRadius: radius }]}>
+            <Image
+              source={icon}
+              style={styles.ballGraphicSelected}
+              resizeMode="cover"
+            />
+          </View>
+        )}
+        {!textBelow && (
+          <View style={styles.ballContent}>
+            <Text
+              style={[
+                styles.ballText,
+                { fontSize: size > 75 ? 20 : 16 },
+                isSelected
+                  ? styles.textActive
+                  : darkText
+                    ? styles.textActive
+                    : styles.textInactive,
+              ]}
+            >
+              {title}
+            </Text>
+            {subTitle && (
+              <Text
+                style={[
+                  styles.ballSubText,
+                  { fontSize: size > 75 ? 16 : 12 },
+                  isSelected
+                    ? styles.textActive
+                    : darkText
+                      ? styles.textActive
+                      : styles.textInactive,
+                ]}
+              >
+                {subTitle}
+              </Text>
+            )}
+          </View>
+        )}
+      </TouchableOpacity>
+      {textBelow && (
+        <View style={{ marginTop: 10, alignItems: "center" }}>
+          <Text
+            style={[
+              styles.ballText,
+              { fontSize: 20, fontWeight: "900" },
+              darkText
+                ? {
+                    color: "#000",
+                    textShadowColor: "rgba(255,255,255,0.8)",
+                    textShadowRadius: 4,
+                  }
+                : styles.textInactive,
+            ]}
+          >
+            {title}
+          </Text>
+          {subTitle && (
+            <Text
+              style={[
+                styles.ballSubText,
+                { fontSize: 16, fontWeight: "800", marginTop: 2 },
+                darkText
+                  ? {
+                      color: "#000",
+                      textShadowColor: "rgba(255,255,255,0.8)",
+                      textShadowRadius: 4,
+                    }
+                  : styles.textInactive,
+              ]}
+            >
+              {subTitle}
+            </Text>
+          )}
+        </View>
       )}
     </View>
-  </TouchableOpacity>
-);
+  );
+};
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<
@@ -152,7 +219,7 @@ export default function App() {
   // Beach Volley Specific State
   const [volleySetsToWin, setVolleySetsToWin] = useState(2);
   const [volleyPointsPerSet, setVolleyPointsPerSet] = useState(21);
-  const [sideChangeInterval, setSideChangeInterval] = useState(7);
+  const [sideChangeInterval, setSideChangeInterval] = useState(7); // 0 means Never
 
   // LOGIC HELPERS
   const isMatchTiebreak = p1Sets + p2Sets === 2 && thirdSet === "tiebreak";
@@ -170,6 +237,7 @@ export default function App() {
   const totalVolleyPoints = p1Points + p2Points;
   const showSideChangeReminder =
     selectedSport === "volleyball" &&
+    sideChangeInterval > 0 &&
     totalVolleyPoints > 0 &&
     totalVolleyPoints % sideChangeInterval === 0;
 
@@ -481,19 +549,21 @@ export default function App() {
             <Text style={styles.mainTitleText}>MatchPoint</Text>
             <Text style={styles.setupSubtitleText}>Courtside companion</Text>
           </View>
-          <Text style={styles.Label}>Select Sport</Text>
+          <Text style={styles.mainSelectLabel}>Select Sport</Text>
           <View style={styles.ballOptionContainer}>
             <SportDial
               title="Tennis"
               isSelected={selectedSport === "tennis"}
               icon={tennisBallGraphic}
               onPress={() => setSelectedSport("tennis")}
+              size={100}
             />
             <SportDial
-              title="Beach Volley"
+              title={"Beach\nVolley"}
               isSelected={selectedSport === "volleyball"}
               icon={volleyBallGraphic}
               onPress={() => setSelectedSport("volleyball")}
+              size={100}
             />
           </View>
           <TouchableOpacity
@@ -700,58 +770,39 @@ export default function App() {
               showsVerticalScrollIndicator={false}
             >
               <View style={styles.headerAreaTextLogo}>
-                <Text
-                  style={[
-                    styles.mainTitleText,
-                    { color: "#fff", textShadowColor: "#000" },
-                  ]}
-                >
-                  MatchPoint
-                </Text>
-                <Text style={[styles.setupSubtitleText, { color: "#fff" }]}>
+                <Text style={styles.beachMainTitleText}>MatchPoint</Text>
+                <Text style={styles.beachSetupSubtitleText}>
                   Courtside companion
                 </Text>
               </View>
               <View style={styles.beachGlassCard}>
-                <Text
-                  style={[
-                    styles.Label,
-                    { color: "#fff", textShadowColor: "#000" },
-                  ]}
-                >
-                  Team Names
-                </Text>
+                <Text style={styles.beachLabel}>Team Names</Text>
                 <TextInput
                   style={styles.beachInput}
                   placeholder="Team 1"
-                  placeholderTextColor="rgba(255,255,255,0.7)"
+                  placeholderTextColor="rgba(0,0,0,0.4)"
                   value={p1Name}
                   onChangeText={setP1Name}
                 />
                 <TextInput
                   style={styles.beachInput}
                   placeholder="Team 2"
-                  placeholderTextColor="rgba(255,255,255,0.7)"
+                  placeholderTextColor="rgba(0,0,0,0.4)"
                   value={p2Name}
                   onChangeText={setP2Name}
                 />
               </View>
 
-              <Text
-                style={[
-                  styles.Label,
-                  { color: "#fff", textShadowColor: "#000" },
-                ]}
-              >
-                Best of Sets
-              </Text>
-              <View style={styles.ballOptionContainer}>
+              <Text style={styles.beachLabel}>Best of Sets</Text>
+              <View style={styles.beachBallOptionContainer}>
                 <SportDial
                   title="1"
                   subTitle="Set"
                   isSelected={volleySetsToWin === 1}
                   icon={volleyBallGraphic}
                   onPress={() => setVolleySetsToWin(1)}
+                  darkText
+                  textBelow
                 />
                 <SportDial
                   title="3"
@@ -759,6 +810,8 @@ export default function App() {
                   isSelected={volleySetsToWin === 2}
                   icon={volleyBallGraphic}
                   onPress={() => setVolleySetsToWin(2)}
+                  darkText
+                  textBelow
                 />
                 <SportDial
                   title="5"
@@ -766,53 +819,57 @@ export default function App() {
                   isSelected={volleySetsToWin === 3}
                   icon={volleyBallGraphic}
                   onPress={() => setVolleySetsToWin(3)}
+                  darkText
+                  textBelow
                 />
               </View>
 
-              <Text
-                style={[
-                  styles.Label,
-                  { color: "#fff", textShadowColor: "#000" },
-                ]}
-              >
-                Points per Set
-              </Text>
-              <View style={styles.ballOptionContainer}>
+              <Text style={styles.beachLabel}>Points per Set</Text>
+              <View style={styles.beachBallOptionContainer}>
                 <SportDial
                   title="15"
                   isSelected={volleyPointsPerSet === 15}
                   icon={volleyBallGraphic}
                   onPress={() => setVolleyPointsPerSet(15)}
+                  darkText
+                  textBelow
                 />
                 <SportDial
                   title="21"
                   isSelected={volleyPointsPerSet === 21}
                   icon={volleyBallGraphic}
                   onPress={() => setVolleyPointsPerSet(21)}
+                  darkText
+                  textBelow
                 />
                 <SportDial
                   title="25"
                   isSelected={volleyPointsPerSet === 25}
                   icon={volleyBallGraphic}
                   onPress={() => setVolleyPointsPerSet(25)}
+                  darkText
+                  textBelow
                 />
               </View>
 
-              <Text
-                style={[
-                  styles.Label,
-                  { color: "#fff", textShadowColor: "#000" },
-                ]}
-              >
-                Change Sides Every
-              </Text>
-              <View style={styles.ballOptionContainer}>
+              <Text style={styles.beachLabel}>Change Sides Every</Text>
+              <View style={styles.beachBallOptionContainer}>
+                <SportDial
+                  title="None"
+                  isSelected={sideChangeInterval === 0}
+                  icon={volleyBallGraphic}
+                  onPress={() => setSideChangeInterval(0)}
+                  darkText
+                  textBelow
+                />
                 <SportDial
                   title="5"
                   subTitle="Pts"
                   isSelected={sideChangeInterval === 5}
                   icon={volleyBallGraphic}
                   onPress={() => setSideChangeInterval(5)}
+                  darkText
+                  textBelow
                 />
                 <SportDial
                   title="7"
@@ -820,6 +877,8 @@ export default function App() {
                   isSelected={sideChangeInterval === 7}
                   icon={volleyBallGraphic}
                   onPress={() => setSideChangeInterval(7)}
+                  darkText
+                  textBelow
                 />
               </View>
 
@@ -827,23 +886,45 @@ export default function App() {
                 <TouchableOpacity
                   style={[
                     styles.startMatchButton,
-                    { backgroundColor: "#ffb347" },
+                    {
+                      backgroundColor: "#ffb347",
+                      borderWidth: 2,
+                      borderColor: "#000",
+                    },
                   ]}
                   onPress={() => {
                     setCurrentScreen("volleyMatch");
                     setMatchStartTime(Date.now());
                   }}
                 >
-                  <Text style={styles.startMatchButtonText}>Start Match</Text>
+                  <Text
+                    style={[
+                      styles.startMatchButtonText,
+                      { color: "#000", fontWeight: "900", fontSize: 24 },
+                    ]}
+                  >
+                    Start Match
+                  </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[
                     styles.historyButton,
-                    { backgroundColor: "rgba(0,0,0,0.2)" },
+                    {
+                      backgroundColor: "rgba(255,255,255,0.9)",
+                      borderWidth: 2,
+                      borderColor: "#000",
+                    },
                   ]}
                   onPress={() => setCurrentScreen("sportSelect")}
                 >
-                  <Text style={styles.historyButtonText}>← Back to Sports</Text>
+                  <Text
+                    style={[
+                      styles.historyButtonText,
+                      { color: "#000", fontWeight: "800", fontSize: 20 },
+                    ]}
+                  >
+                    ← Back to Sports
+                  </Text>
                 </TouchableOpacity>
               </View>
             </ScrollView>
@@ -993,17 +1074,15 @@ export default function App() {
       >
         <View style={styles.beachOverlay}>
           <View style={[styles.headerAreaTextLogo, { marginBottom: 20 }]}>
-            <Text
-              style={[
-                styles.mainTitleText,
-                { color: "#fff", textShadowColor: "#000", fontSize: 40 },
-              ]}
-            >
+            <Text style={[styles.mainTitleText, { fontSize: 48 }]}>
               MatchPoint
             </Text>
+            <Text style={styles.setupSubtitleText}>Courtside companion</Text>
           </View>
-          <View style={styles.timerBadge}>
-            <Text style={styles.timerText}>⏱ {formatTime(elapsedSeconds)}</Text>
+          <View style={styles.beachTimerBadge}>
+            <Text style={styles.beachTimerText}>
+              ⏱ {formatTime(elapsedSeconds)}
+            </Text>
           </View>
 
           {matchId && (
@@ -1015,94 +1094,177 @@ export default function App() {
           )}
 
           <View style={styles.beachGlassCard}>
-            <View style={styles.scoreRowHeader}>
-              <Text style={[styles.scoreCell, styles.nameCell]}></Text>
+            <View style={styles.beachScoreRowHeader}>
+              <Text
+                style={[styles.beachScoreCell, styles.beachNameCell]}
+              ></Text>
               {completedSets.map((_, i) => (
-                <Text key={i} style={styles.scoreCell}>
+                <Text key={i} style={styles.beachScoreCell}>
                   S{i + 1}
                 </Text>
               ))}
-              <Text style={[styles.scoreCell, styles.activeHeaderCell]}>S</Text>
-              <Text style={[styles.scoreCell, styles.pointHeaderCell]}>P</Text>
-            </View>
-            <View style={styles.scoreRow}>
+              <Text style={[styles.beachScoreCell, { fontWeight: "900" }]}>
+                S
+              </Text>
               <Text
-                style={[styles.scoreCell, styles.nameCell]}
+                style={[
+                  styles.beachScoreCell,
+                  { color: "#d90000", fontWeight: "900" },
+                ]}
+              >
+                P
+              </Text>
+            </View>
+            <View style={styles.beachScoreRow}>
+              <Text
+                style={[styles.beachScoreCell, styles.beachNameCell]}
+                adjustsFontSizeToFit
                 numberOfLines={1}
               >
                 {p1Name || "Team 1"}
               </Text>
               {completedSets.map((s, i) => (
-                <Text key={i} style={styles.scoreCell}>
+                <Text
+                  key={i}
+                  style={styles.beachScoreCell}
+                  adjustsFontSizeToFit
+                  numberOfLines={1}
+                >
                   {s.p1}
                 </Text>
               ))}
-              <Text style={[styles.scoreCell, styles.activeCell]}>
+              <Text
+                style={[styles.beachScoreCell, styles.beachActiveCell]}
+                adjustsFontSizeToFit
+                numberOfLines={1}
+              >
                 {p1Sets}
               </Text>
-              <Text style={[styles.scoreCell, styles.pointCell]}>
+              <Text
+                style={[styles.beachScoreCell, styles.beachPointCell]}
+                adjustsFontSizeToFit
+                numberOfLines={1}
+              >
                 {p1Points}
               </Text>
             </View>
-            <View style={styles.scoreRow}>
+            <View style={styles.beachScoreRow}>
               <Text
-                style={[styles.scoreCell, styles.nameCell]}
+                style={[styles.beachScoreCell, styles.beachNameCell]}
+                adjustsFontSizeToFit
                 numberOfLines={1}
               >
                 {p2Name || "Team 2"}
               </Text>
               {completedSets.map((s, i) => (
-                <Text key={i} style={styles.scoreCell}>
+                <Text
+                  key={i}
+                  style={styles.beachScoreCell}
+                  adjustsFontSizeToFit
+                  numberOfLines={1}
+                >
                   {s.p2}
                 </Text>
               ))}
-              <Text style={[styles.scoreCell, styles.activeCell]}>
+              <Text
+                style={[styles.beachScoreCell, styles.beachActiveCell]}
+                adjustsFontSizeToFit
+                numberOfLines={1}
+              >
                 {p2Sets}
               </Text>
-              <Text style={[styles.scoreCell, styles.pointCell]}>
+              <Text
+                style={[styles.beachScoreCell, styles.beachPointCell]}
+                adjustsFontSizeToFit
+                numberOfLines={1}
+              >
                 {p2Points}
               </Text>
             </View>
           </View>
+
           <View style={styles.actionArea}>
-            <View style={styles.playerCardGlass}>
-              <Text style={styles.actionName}>{p1Name || "Team 1"}</Text>
+            <View style={styles.beachPlayerCardGlass}>
+              <Text
+                style={styles.beachActionName}
+                adjustsFontSizeToFit
+                numberOfLines={1}
+              >
+                {p1Name || "Team 1"}
+              </Text>
               <TouchableOpacity
-                style={[styles.scoreButton, { backgroundColor: "#ffb347" }]}
+                style={[
+                  styles.scoreButton,
+                  {
+                    backgroundColor: "#ffb347",
+                    borderWidth: 2,
+                    borderColor: "#000",
+                  },
+                ]}
                 onPress={() => handleVolleyScore(1)}
               >
-                <Text style={styles.scoreButtonText}>+ Point</Text>
+                <Text style={styles.beachScoreButtonText}>+ Point</Text>
               </TouchableOpacity>
             </View>
-            <View style={styles.playerCardGlass}>
-              <Text style={styles.actionName}>{p2Name || "Team 2"}</Text>
+            <View style={styles.beachPlayerCardGlass}>
+              <Text
+                style={styles.beachActionName}
+                adjustsFontSizeToFit
+                numberOfLines={1}
+              >
+                {p2Name || "Team 2"}
+              </Text>
               <TouchableOpacity
-                style={[styles.scoreButton, { backgroundColor: "#ffb347" }]}
+                style={[
+                  styles.scoreButton,
+                  {
+                    backgroundColor: "#ffb347",
+                    borderWidth: 2,
+                    borderColor: "#000",
+                  },
+                ]}
                 onPress={() => handleVolleyScore(2)}
               >
-                <Text style={styles.scoreButtonText}>+ Point</Text>
+                <Text style={styles.beachScoreButtonText}>+ Point</Text>
               </TouchableOpacity>
             </View>
           </View>
 
+          {history.length > 0 && (
+            <TouchableOpacity
+              style={[
+                styles.beachUndoButton,
+                {
+                  alignSelf: "center",
+                  marginTop: 15,
+                  width: "100%",
+                  alignItems: "center",
+                },
+              ]}
+              onPress={handleUndo}
+            >
+              <Text style={styles.beachUndoButtonText}>↩ Undo</Text>
+            </TouchableOpacity>
+          )}
+
           {showSideChangeReminder && (
-            <View style={styles.sideChangeAlert}>
-              <Text style={styles.sideChangeText}>🔄 CHANGE SIDES! 🔄</Text>
+            <View style={styles.beachSideChangeAlert}>
+              <Text style={styles.beachSideChangeText}>
+                🔄 CHANGE SIDES! 🔄
+              </Text>
             </View>
           )}
 
           <View style={styles.bottomActionsBox}>
             <TouchableOpacity
-              style={styles.liveShareBtn}
+              style={styles.beachUndoButton}
               onPress={handleLiveShare}
             >
-              <Text style={styles.liveShareBtnText}>📡 Share Live Score</Text>
+              <Text style={styles.beachUndoButtonText}>
+                📡 Share Live Score
+              </Text>
             </TouchableOpacity>
-            {history.length > 0 && (
-              <TouchableOpacity style={styles.undoButton} onPress={handleUndo}>
-                <Text style={styles.undoButtonText}>↩ Undo</Text>
-              </TouchableOpacity>
-            )}
+
             <TouchableOpacity
               style={styles.cancelButton}
               onPress={() => {
@@ -1110,9 +1272,7 @@ export default function App() {
                 resetFullMatch();
               }}
             >
-              <Text style={[styles.cancelButtonText, { color: "#fff" }]}>
-                Cancel Match
-              </Text>
+              <Text style={styles.beachCancelButtonText}>Cancel Match</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -1132,6 +1292,7 @@ export default function App() {
             <Text style={[styles.mainTitleText, { fontSize: 40 }]}>
               MatchPoint
             </Text>
+            <Text style={styles.setupSubtitleText}>Courtside companion</Text>
           </View>
           <View style={styles.timerBadge}>
             <Text style={styles.timerText}>⏱ {formatTime(elapsedSeconds)}</Text>
@@ -1167,45 +1328,79 @@ export default function App() {
             <View style={styles.scoreRow}>
               <Text
                 style={[styles.scoreCell, styles.nameCell]}
+                adjustsFontSizeToFit
                 numberOfLines={1}
               >
                 {p1Name || "P1"}
               </Text>
               {completedSets.map((s, i) => (
-                <Text key={i} style={styles.scoreCell}>
+                <Text
+                  key={i}
+                  style={styles.scoreCell}
+                  adjustsFontSizeToFit
+                  numberOfLines={1}
+                >
                   {s.p1}
                 </Text>
               ))}
-              <Text style={[styles.scoreCell, styles.activeCell]}>
+              <Text
+                style={[styles.scoreCell, styles.activeCell]}
+                adjustsFontSizeToFit
+                numberOfLines={1}
+              >
                 {p1Games}
               </Text>
-              <Text style={[styles.scoreCell, styles.pointCell]}>
+              <Text
+                style={[styles.scoreCell, styles.pointCell]}
+                adjustsFontSizeToFit
+                numberOfLines={1}
+              >
                 {isTiebreak ? p1Points : getTennisScore(p1Points)}
               </Text>
             </View>
             <View style={styles.scoreRow}>
               <Text
                 style={[styles.scoreCell, styles.nameCell]}
+                adjustsFontSizeToFit
                 numberOfLines={1}
               >
                 {p2Name || "P2"}
               </Text>
               {completedSets.map((s, i) => (
-                <Text key={i} style={styles.scoreCell}>
+                <Text
+                  key={i}
+                  style={styles.scoreCell}
+                  adjustsFontSizeToFit
+                  numberOfLines={1}
+                >
                   {s.p2}
                 </Text>
               ))}
-              <Text style={[styles.scoreCell, styles.activeCell]}>
+              <Text
+                style={[styles.scoreCell, styles.activeCell]}
+                adjustsFontSizeToFit
+                numberOfLines={1}
+              >
                 {p2Games}
               </Text>
-              <Text style={[styles.scoreCell, styles.pointCell]}>
+              <Text
+                style={[styles.scoreCell, styles.pointCell]}
+                adjustsFontSizeToFit
+                numberOfLines={1}
+              >
                 {isTiebreak ? p2Points : getTennisScore(p2Points)}
               </Text>
             </View>
           </View>
           <View style={styles.actionArea}>
             <View style={styles.playerCardGlass}>
-              <Text style={styles.actionName}>{p1Name || "P1"}</Text>
+              <Text
+                style={styles.actionName}
+                adjustsFontSizeToFit
+                numberOfLines={1}
+              >
+                {p1Name || "P1"}
+              </Text>
               <TouchableOpacity
                 style={styles.scoreButton}
                 onPress={() => handleTennisScore(1)}
@@ -1214,7 +1409,13 @@ export default function App() {
               </TouchableOpacity>
             </View>
             <View style={styles.playerCardGlass}>
-              <Text style={styles.actionName}>{p2Name || "P2"}</Text>
+              <Text
+                style={styles.actionName}
+                adjustsFontSizeToFit
+                numberOfLines={1}
+              >
+                {p2Name || "P2"}
+              </Text>
               <TouchableOpacity
                 style={styles.scoreButton}
                 onPress={() => handleTennisScore(2)}
@@ -1223,6 +1424,24 @@ export default function App() {
               </TouchableOpacity>
             </View>
           </View>
+
+          {history.length > 0 && (
+            <TouchableOpacity
+              style={[
+                styles.undoButton,
+                {
+                  alignSelf: "center",
+                  marginTop: 15,
+                  width: "100%",
+                  alignItems: "center",
+                },
+              ]}
+              onPress={handleUndo}
+            >
+              <Text style={styles.undoButtonText}>↩ Undo</Text>
+            </TouchableOpacity>
+          )}
+
           <View style={styles.bottomActionsBox}>
             <TouchableOpacity
               style={styles.liveShareBtn}
@@ -1230,11 +1449,7 @@ export default function App() {
             >
               <Text style={styles.liveShareBtnText}>📡 Share Live Score</Text>
             </TouchableOpacity>
-            {history.length > 0 && (
-              <TouchableOpacity style={styles.undoButton} onPress={handleUndo}>
-                <Text style={styles.undoButtonText}>↩ Undo</Text>
-              </TouchableOpacity>
-            )}
+
             <TouchableOpacity
               style={styles.cancelButton}
               onPress={() => {
@@ -1268,50 +1483,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
 
-  beachOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(79, 164, 184, 0.75)",
-    paddingTop: 60,
-    paddingHorizontal: 20,
-  },
-  beachGlassCard: {
-    backgroundColor: "rgba(255, 255, 255, 0.15)",
-    padding: 15,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.3)",
-    marginBottom: 20,
-  },
-  beachInput: {
-    backgroundColor: "rgba(255, 255, 255, 0.25)",
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.4)",
-    padding: 14,
-    borderRadius: 14,
-    fontSize: 16,
-    color: "#fff",
-    marginBottom: 10,
-    fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
-  },
-
-  sideChangeAlert: {
-    backgroundColor: "#FFB347",
-    padding: 12,
-    borderRadius: 15,
-    marginTop: 20,
-    marginBottom: 5,
-    alignItems: "center",
-    borderWidth: 2,
-    borderColor: "#fff",
-  },
-  sideChangeText: {
-    color: "#fff",
-    fontWeight: "900",
-    fontSize: 18,
-    textShadowColor: "rgba(0,0,0,0.5)",
-    textShadowRadius: 2,
-  },
-
   headerAreaTextLogo: {
     marginBottom: 50,
     alignItems: "center",
@@ -1337,6 +1508,20 @@ const styles = StyleSheet.create({
     marginTop: 5,
   },
 
+  mainSelectLabel: {
+    fontSize: 34,
+    fontWeight: "800",
+    fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
+    marginTop: 10,
+    marginBottom: 40,
+    color: "#FDF6E3",
+    textAlign: "center",
+    textShadowColor: "rgba(0,0,0,0.4)",
+    textShadowRadius: 5,
+    letterSpacing: 1,
+  },
+
+  // TENNIS STYLES
   timerBadge: {
     backgroundColor: "rgba(0, 0, 0, 0.25)",
     paddingHorizontal: 20,
@@ -1353,7 +1538,6 @@ const styles = StyleSheet.create({
     fontVariant: ["tabular-nums"],
     letterSpacing: 1,
   },
-
   Label: {
     fontSize: 20,
     fontWeight: "700",
@@ -1384,7 +1568,6 @@ const styles = StyleSheet.create({
     marginBottom: 15,
     fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
   },
-
   ballOptionContainer: {
     flexDirection: "row",
     justifyContent: "center",
@@ -1392,21 +1575,18 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   ballWrapper: {
-    width: 75,
-    height: 75,
-    borderRadius: 37.5,
     justifyContent: "center",
     alignItems: "center",
     position: "relative",
     backgroundColor: "transparent",
   },
   ballWrapperUnselected: { backgroundColor: "rgba(255, 255, 255, 0.28)" },
+  ballWrapperUnselectedDark: { backgroundColor: "rgba(255, 255, 255, 0.6)" },
   ballWrapperSelected: { transform: [{ scale: 1.15 }] },
   imageMask: {
     position: "absolute",
     width: "100%",
     height: "100%",
-    borderRadius: 37.5,
     overflow: "hidden",
     backgroundColor: "transparent",
   },
@@ -1421,13 +1601,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   ballText: {
-    fontSize: 16,
     fontWeight: "bold",
     fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
     textAlign: "center",
   },
   ballSubText: {
-    fontSize: 12,
     fontWeight: "600",
     fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
     textAlign: "center",
@@ -1490,17 +1668,24 @@ const styles = StyleSheet.create({
   scoreCell: {
     flex: 1,
     textAlign: "center",
-    fontSize: 13,
+    fontSize: 42,
     color: "#fff",
     fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
+    fontWeight: "700",
   },
-  nameCell: { flex: 2.5, textAlign: "left", fontWeight: "600", fontSize: 15 },
+  nameCell: {
+    flex: 2.5,
+    textAlign: "left",
+    fontWeight: "800",
+    fontSize: 42,
+    color: "#fff",
+  },
   activeHeaderCell: { color: "#DFFF00" },
   pointHeaderCell: { color: "#FFB347" },
   activeCell: {
     color: "#DFFF00",
-    fontWeight: "600",
-    fontSize: 18,
+    fontWeight: "800",
+    fontSize: 42,
     fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
   },
   pointCell: {
@@ -1719,5 +1904,187 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginTop: 100,
+  },
+
+  // HIGH-CONTRAST BEACH VOLLEY UI STYLES
+  beachOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(79, 164, 184, 0.4)",
+    paddingTop: 60,
+    paddingHorizontal: 20,
+  },
+  beachMainTitleText: {
+    fontSize: 56,
+    fontWeight: "900",
+    fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
+    color: "#000",
+    textAlign: "center",
+    textShadowColor: "rgba(255,255,255,0.8)",
+    textShadowRadius: 6,
+  },
+  beachSetupSubtitleText: {
+    fontSize: 26,
+    fontWeight: "800",
+    fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
+    color: "#000",
+    textAlign: "center",
+    marginTop: 5,
+    textShadowColor: "rgba(255,255,255,0.8)",
+    textShadowRadius: 4,
+  },
+  beachLabel: {
+    fontSize: 24,
+    fontWeight: "900",
+    fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
+    marginTop: 30,
+    marginBottom: 15,
+    color: "#000",
+    textAlign: "center",
+    textShadowColor: "rgba(255,255,255,0.8)",
+    textShadowRadius: 4,
+    letterSpacing: 0.5,
+  },
+  beachBallOptionContainer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 20,
+    marginBottom: 35,
+  },
+  beachGlassCard: {
+    backgroundColor: "rgba(255, 255, 255, 0.85)",
+    padding: 15,
+    borderRadius: 24,
+    borderWidth: 2,
+    borderColor: "#000",
+    marginBottom: 20,
+  },
+  beachInput: {
+    backgroundColor: "rgba(255, 255, 255, 0.9)",
+    borderWidth: 2,
+    borderColor: "#000",
+    padding: 18,
+    borderRadius: 14,
+    fontSize: 20,
+    color: "#000",
+    marginBottom: 10,
+    fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
+    fontWeight: "700",
+  },
+
+  beachTimerBadge: {
+    backgroundColor: "rgba(255, 255, 255, 0.9)",
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    borderRadius: 25,
+    alignSelf: "center",
+    marginBottom: 15,
+    borderWidth: 2,
+    borderColor: "#000",
+  },
+  beachTimerText: {
+    color: "#000",
+    fontSize: 26,
+    fontWeight: "900",
+    fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
+    fontVariant: ["tabular-nums"],
+    letterSpacing: 1,
+  },
+
+  beachScoreRowHeader: {
+    flexDirection: "row",
+    borderBottomWidth: 2,
+    borderBottomColor: "#000",
+    paddingVertical: 8,
+  },
+  beachScoreRow: {
+    flexDirection: "row",
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(0,0,0,0.3)",
+    paddingVertical: 12,
+    alignItems: "center",
+  },
+  beachScoreCell: {
+    flex: 1,
+    textAlign: "center",
+    fontSize: 50,
+    color: "#000",
+    fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
+    fontWeight: "700",
+  },
+  beachNameCell: {
+    flex: 2.5,
+    textAlign: "left",
+    fontWeight: "800",
+    fontSize: 50,
+    color: "#000",
+  },
+  beachActiveCell: {
+    color: "#000",
+    fontWeight: "800",
+    fontSize: 50,
+    fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
+  },
+  beachPointCell: {
+    color: "#000",
+    fontWeight: "900",
+    fontSize: 50,
+    fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
+  },
+
+  beachPlayerCardGlass: {
+    flex: 1,
+    backgroundColor: "rgba(255, 255, 255, 0.85)",
+    borderRadius: 24,
+    padding: 16,
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: "#000",
+  },
+  beachActionName: {
+    fontSize: 24,
+    fontWeight: "900",
+    color: "#000",
+    marginBottom: 15,
+    fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
+  },
+  beachScoreButtonText: {
+    color: "#000",
+    fontSize: 22,
+    fontWeight: "900",
+    textAlign: "center",
+    fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
+  },
+
+  beachSideChangeAlert: {
+    backgroundColor: "#FFB347",
+    padding: 12,
+    borderRadius: 15,
+    marginTop: 20,
+    marginBottom: 5,
+    alignItems: "center",
+    borderWidth: 3,
+    borderColor: "#000",
+  },
+  beachSideChangeText: { color: "#000", fontWeight: "900", fontSize: 20 },
+
+  beachUndoButton: {
+    backgroundColor: "rgba(255, 255, 255, 0.9)",
+    paddingVertical: 14,
+    paddingHorizontal: 30,
+    borderRadius: 28,
+    borderWidth: 2,
+    borderColor: "#000",
+  },
+  beachUndoButtonText: {
+    color: "#000",
+    fontSize: 18,
+    fontWeight: "800",
+    fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
+  },
+  beachCancelButtonText: {
+    color: "#d90000",
+    fontSize: 18,
+    fontWeight: "800",
+    fontFamily: Platform.OS === "ios" ? "Cochin" : "serif",
   },
 });
